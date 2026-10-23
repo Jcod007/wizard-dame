@@ -173,7 +173,13 @@ footer { text-align: center; color: var(--muted); padding: 0 1rem 1.4rem; font-s
 .tc-head {
   display: flex; align-items: center; gap: .45rem;
   background: #6d4a1f; border-bottom: 4px solid var(--ink);
-  padding: .3rem .45rem .3rem 1.4rem; position: relative; min-height: 2rem;
+  /* Marge gauche du titre calculée pour le badge : badge 34 px de large
+     (box-sizing: border-box) posé à left:-6px → son bord droit arrive à
+     28 px du bord de l'en-tête. Le titre démarre à 2.75rem = 44 px, soit
+     16 px de dégagement : le badge déborde du coin de la carte (voulu, C5)
+     mais ne couvre JAMAIS le texte — en main (>= 150 px) comme en détail
+     (300 px), noms longs inclus (ils passent sur 2 lignes si besoin). */
+  padding: .3rem .45rem .3rem 2.75rem; position: relative; min-height: 2rem;
 }
 .tc-badge {
   position: absolute; left: -6px; top: -6px; width: 34px; height: 34px;

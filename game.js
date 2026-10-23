@@ -666,6 +666,10 @@ function onPawnLands(g, pawn, r, c) {
   return events;
 }
 
+/* Coordonnées « humaines » d'une case : colonne A–H (gauche → droite) et rang
+   1–8 (rang 1 = rangée du bas, côté Joueur 1), comme aux échecs. */
+function cellName(r, c) { return "ABCDEFGH"[c] + (8 - r); }
+
 /* Déplacement principal. move = un élément de pawnMoves(g, r, c). */
 function applyMove(g, r, c, move) {
   if (g.phase !== "move") return { ok: false, error: "Le déplacement principal doit avoir lieu maintenant (phase actuelle : " + g.phase + ")." };
@@ -708,6 +712,9 @@ function applyMove(g, r, c, move) {
       g.graveyard[victim.player].push(victim);
       if (countPawns(g, victim.player) === 0) return winGame(g, g.current, "tous les pions adverses ont été capturés");
     }
+  }
+  if (!found.capture) {
+    g.log.push("Joueur " + g.current + " déplace un pion " + pawn.shape + " de " + cellName(r, c) + " vers " + cellName(move.toR, move.toC) + ".");
   }
   events = events.concat(onPawnLands(g, pawn, move.toR, move.toC));
   g.movedThisTurn = true;
@@ -777,6 +784,7 @@ function endTurn(g) {
   tickFx(g, justPlayed);
   g.current = other(g.current);
   g.lastEvent = { type: "turn", player: g.current };
+  g.log.push("Au tour du Joueur " + g.current + ".");
   var res = startTurn(g, false);
   return res && res.winner ? res : { ok: true };
 }

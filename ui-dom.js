@@ -308,6 +308,7 @@ if (typeof document !== "undefined") {
       ownPawn: "Ton pion", enemyPawn: "Pion adverse", anyPawn: "Un pion",
       ownPair: "2 de tes pions", enemyPair: "2 pions adverses", emptyCell: "Case vide",
       ownPawnOrCell: "Pion ou case", ownPawnCell: "Pion + case", graveyardCell: "Case de retour",
+      ownPawnChoice: "Ton pion", graveyard: "Case de retour",
       none: "—", noneChoice: "—"
     };
 
@@ -384,7 +385,8 @@ if (typeof document !== "undefined") {
       var id = g.hands[g.current][ui.pendingCard];
       var def = CARDS[id];
       var h = '<div class="tc tc-big" data-fam="' + def.famille + '">' + cardHTML(id) + "</div><div class='detail-fields'>" +
-        "<p><strong>Cible et conditions :</strong> " + esc(def.conditions) + "</p>" +
+        "<p><strong>Cible :</strong> " + esc(TARGET_SHORT[def.cible] || "—") + "</p>" +
+        "<p><strong>Conditions :</strong> " + esc(def.conditions.replace(/^Cible : /, "")) + "</p>" +
         "<p><strong>Effet :</strong> " + esc(def.description) + "</p>" +
         "<p><strong>Coût :</strong> " + esc(def.cout) + "</p>" +
         "<p><strong>Risque :</strong> " + esc(def.risque) + "</p>" +

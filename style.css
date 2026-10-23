@@ -290,6 +290,17 @@ main {
 
 footer { text-align: center; color: var(--muted); padding: 0 1rem 1.6rem; font-size: 18px; }
 
+/* ===== Placement secret ===== */
+.deploy-panel { background: var(--panel-dark); padding: .8rem 1rem; margin: 1rem var(--u) .4rem; text-align: center; }
+.deploy-count { margin: 0 0 .5rem; }
+.reserve { display: flex; flex-wrap: wrap; justify-content: center; gap: 0; }
+.reserve-pawn { padding: 4px; margin: 6px; background: #2e2150; }
+.reserve-pawn.on { background: var(--gold-lo); outline: var(--u) solid var(--gold); outline-offset: var(--u); }
+.reserve-img { width: 32px; height: 32px; display: block; }
+.deploy-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: .2rem; margin: .6rem 0 0; }
+button[disabled] { opacity: .45; cursor: not-allowed; }
+.overlay:has(.opaque) { background-color: #0b0714; }
+
 /* ===== Écrans : menu principal, règles, passation, victoire ===== */
 .overlay {
   position: fixed; inset: 0; z-index: 50; padding: 1rem; overflow-y: auto;

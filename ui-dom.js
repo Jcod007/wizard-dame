@@ -37,7 +37,7 @@ var _urlCache = {};
 function cached(key, make) { if (!_urlCache[key]) _urlCache[key] = make(); return _urlCache[key]; }
 
 function spriteURL(name) { return cached("ui-" + name, function () { return gridURL(mapGrid(UI_SPRITES[name])); }); }
-function pawnURL(player, shape) { return cached("pawn-" + player + shape, function () { return gridURL(pawnPixels(SPRITE_MAPS[shape], player)); }); }
+function pawnURL(player, shape) { return cached("pawn-" + player + shape, function () { return gridURL(pieceSprite(shape, player)); }); }
 
 /* Icône de famille (pied de carte) : glyphe 12x12 de la famille, contouré. */
 function cardSpriteURL(id) {
@@ -215,13 +215,15 @@ if (typeof document !== "undefined") {
     var overlayEl = document.getElementById("overlay");
     var vicEl = document.getElementById("victory");
     var bannerEl = document.getElementById("board-banner");
+    var deployEl = document.getElementById("deploy-panel");
 
     var gameSeq = 0;
-    var g = createGame(Date.now() % 100000);
+    var gameSeed = Date.now() % 100000;
+    var g = createGame(gameSeed, { deploy: true }); // placement libre et secret
     gameSeq++;
     function freshUi(screen) {
       return { selected: null, moves: [], pendingCard: null, pendingTargets: [], pendingChoices: {},
-               lastFromTo: null, inspectId: null, screen: screen, victorySeen: false, started: screen === null };
+               lastFromTo: null, inspectId: null, screen: screen, victorySeen: false, started: screen === null, reserveSel: 0 };
     }
     var ui = freshUi("menu");
 
@@ -266,7 +268,7 @@ if (typeof document !== "undefined") {
       bannerTimer = setTimeout(function () { bannerEl.className = "board-banner"; }, 1400);
     }
     function turnBanner() {
-      showBanner(img(pawnURL(g.current, "etoile"), "banner-pawn", "") + "<span>TOUR DU JOUEUR " + g.current + "</span>", "p" + g.current);
+      showBanner(img(pawnURL(g.current, "mage"), "banner-pawn", "") + "<span>TOUR DU JOUEUR " + g.current + "</span>", "p" + g.current);
     }
     function castBanner(id) {
       // Posée côté adversaire (J1 joue en bas → bannière en haut) pour ne pas
@@ -296,22 +298,62 @@ if (typeof document !== "undefined") {
       return chips;
     }
 
+    /* Joueur qui prépare en secret (placement ou pièce essentielle), sinon 0. */
+    function setupPlayer() {
+      var m = /^(deploy|select)([12])$/.exec(g.phase);
+      return m ? parseInt(m[2], 10) : 0;
+    }
+
     function render() {
-      renderBoard(); renderStatus(); renderHands(); renderDetail(); renderOverlay(); renderLog();
+      renderBoard(); renderStatus(); renderDeploy(); renderHands(); renderDetail(); renderOverlay(); renderLog();
+    }
+
+    /* Panneau de placement : réserve de personnages (clic = prochain à poser),
+       placement au hasard, validation quand les 12 sont posés. */
+    function renderDeploy() {
+      var pl = /^deploy([12])$/.exec(g.phase);
+      if (!pl) { deployEl.innerHTML = ""; deployEl.style.display = "none"; return; }
+      pl = parseInt(pl[1], 10);
+      var res = g.reserve[pl];
+      if (ui.reserveSel >= res.length) ui.reserveSel = 0;
+      deployEl.style.display = "block";
+      deployEl.innerHTML = '<p class="deploy-count">' + (PIECES_PER_PLAYER - res.length) + " / " + PIECES_PER_PLAYER + " pions placés" +
+        (res.length ? " — prochain : <b>" + esc(pieceName(res[ui.reserveSel].shape)) + "</b>" : "") + "</p>" +
+        '<div class="reserve">' + res.map(function (p, i) {
+          return '<button type="button" class="reserve-pawn' + (i === ui.reserveSel ? " on" : "") + '" data-i="' + i + '" title="' + esc(pieceName(p.shape)) + '">' +
+            img(pawnURL(pl, p.shape), "reserve-img", pieceName(p.shape)) + "</button>";
+        }).join("") + "</div>" +
+        '<p class="deploy-actions">' +
+        (res.length ? '<button type="button" id="deploy-auto">PLACER LE RESTE AU HASARD</button>' : "") +
+        '<button type="button" id="deploy-done" class="' + (res.length ? "" : "btn-gold") + '"' + (res.length ? " disabled" : "") + ">VALIDER LE PLACEMENT</button></p>";
+      deployEl.querySelectorAll(".reserve-pawn").forEach(function (b) {
+        b.addEventListener("click", function () { ui.reserveSel = parseInt(b.dataset.i, 10); Sound.play("select"); renderDeploy(); });
+      });
+      bind("deploy-auto", function () { autoDeploy(g, pl); Sound.play("move"); render(); });
+      bind("deploy-done", function () {
+        var r = finishDeploy(g, pl);
+        if (!r.ok) { Sound.play("invalid"); logUi(r.error); return; }
+        logUi("Joueur " + pl + " : placement terminé. Choisis maintenant ta pièce essentielle.");
+        Sound.play("shield"); render();
+      });
     }
 
     function renderBoard() {
       var view = {
-        gameId: gameSeq,
+        gameId: gameSeq, terrainSeed: gameSeed, zone: [],
         pawns: [], decoys: [], guards: [], traps: [],
         selected: ui.selected, targets: [], cardTargets: ui.pendingTargets.slice(),
         phase: g.phase, current: g.current
       };
       ui.moves.forEach(function (m) { view.targets.push({ r: m.toR, c: m.toC, capture: !!m.capture }); });
+      // Préparation secrète : seul le joueur qui prépare voit SES pions.
+      var prep = setupPlayer();
+      if (prep && g.phase === "deploy" + prep && g.reserve[prep].length)
+        deployRows(prep).forEach(function (zr) { for (var zc = 0; zc < 8; zc++) if (!g.board[zr][zc]) view.zone.push({ r: zr, c: zc }); });
       var showTrapsFor = g.current; // pièges visibles de leur propriétaire seulement, pendant SON tour
       for (var r = 0; r < 8; r++) for (var c = 0; c < 8; c++) {
         var pawn = g.board[r][c];
-        if (pawn) {
+        if (pawn && !(g.phase === "handover" || (prep && pawn.player !== prep))) {
           var suspicion = false;
           Object.keys(g.suspicion).forEach(function (pl) { if (g.suspicion[pl] === pawn.id) suspicion = true; });
           view.pawns.push({ id: pawn.id, player: pawn.player, shape: pawn.shape, r: r, c: c, chips: badgesData(pawn), suspicion: suspicion });
@@ -333,34 +375,41 @@ if (typeof document !== "undefined") {
     function renderStatus() {
       var who = g.current === 1 ? "JOUEUR 1 · VIOLET" : "JOUEUR 2 · ORANGE";
       if (g.phase === "over") turnEl.textContent = "FIN DE PARTIE";
-      else if (g.phase.indexOf("select") === 0) turnEl.textContent = "CHOIX SECRET — J" + (g.phase === "select1" ? 1 : 2);
+      else if (g.phase.indexOf("deploy") === 0) turnEl.textContent = "PLACEMENT SECRET — J" + setupPlayer();
+      else if (g.phase.indexOf("select") === 0) turnEl.textContent = "PIECE ESSENTIELLE — J" + setupPlayer();
       else if (g.phase === "handover") turnEl.textContent = "PASSATION…";
       else turnEl.textContent = "TOUR DU " + who;
-      var turnPlayer = g.phase === "over" ? g.winner : g.current;
+      var turnPlayer = g.phase === "over" ? g.winner : (setupPlayer() || g.current);
       turnEl.className = "turn p" + turnPlayer;
-      turnPawnEl.src = pawnURL(turnPlayer, "etoile");
+      turnPawnEl.src = pawnURL(turnPlayer || 1, "mage");
 
       var inGame = g.phase === "move" || g.phase === "card";
-      stepsEl.innerHTML = inGame
+      var inSetup = g.phase.indexOf("deploy") === 0 || g.phase.indexOf("select") === 0;
+      stepsEl.innerHTML = inSetup
+        ? '<span class="step' + (g.phase.indexOf("deploy") === 0 ? " on" : " done") + '">1 · PLACER</span>' +
+          '<span class="step' + (g.phase.indexOf("select") === 0 ? " on" : "") + '">2 · PIÈCE ESSENTIELLE</span>'
+        : inGame
         ? '<span class="step' + (g.phase === "move" ? " on" : " done") + '">1 · DÉPLACER</span>' +
           '<span class="step' + (g.phase === "card" ? " on" : "") + '">2 · CARTE</span>'
         : "";
       phaseEl.textContent =
         g.phase === "move" ? "Déplace un pion : 1 case dans les 8 directions, ou capture par saut (non obligatoire)." :
         g.phase === "card" ? "Tu peux jouer 1 carte de ta main, ou terminer ton tour." :
+        g.phase.indexOf("deploy") === 0 ? "Pose tes 12 pions où tu veux dans tes 3 rangées (zone dorée). Clique un pion posé pour le reprendre. L'adversaire ne voit rien." :
         g.phase.indexOf("select") === 0 ? "Clique un de tes pions : ce sera ta pièce essentielle secrète." : "";
 
       countersEl.innerHTML =
         '<span class="ctr" title="Captures">' + img(spriteURL("swords"), "ctr-icon", "Captures") +
           '<b class="p1">' + g.captured[1] + '</b>·<b class="p2">' + g.captured[2] + "</b></span>" +
-        '<span class="ctr" title="Pions en jeu">' + img(pawnURL(1, "cercle"), "ctr-icon", "") + "<b>" + countPawns(g, 1) + "</b>" +
-          img(pawnURL(2, "cercle"), "ctr-icon", "") + "<b>" + countPawns(g, 2) + "</b></span>" +
+        '<span class="ctr" title="Pions en jeu">' + img(pawnURL(1, "chevalier"), "ctr-icon", "") + "<b>" + countPawns(g, 1) + "</b>" +
+          img(pawnURL(2, "chevalier"), "ctr-icon", "") + "<b>" + countPawns(g, 2) + "</b></span>" +
         '<span class="ctr" title="Pioche du joueur courant">' + img(spriteURL("deck"), "ctr-icon", "Pioche") + "<b>" + g.decks[g.current].length + "</b></span>" +
         '<span class="ctr" title="Défausse du joueur courant">' + img(spriteURL("discard"), "ctr-icon", "Défausse") + "<b>" + g.discards[g.current].length + "</b></span>";
 
       vicEl.style.display = g.phase === "over" ? "flex" : "none";
       if (g.phase === "over") vicEl.innerHTML = img(spriteURL("crown"), "vic-crown", "") + "<span>VICTOIRE DU JOUEUR " + g.winner + " — " + esc(g.winReason || "") + "</span>";
       document.getElementById("end-turn").style.display = g.phase === "card" ? "inline-flex" : "none";
+      document.querySelector(".reveal-zone").style.display = (g.phase.indexOf("deploy") === 0 || g.phase.indexOf("select") === 0 || g.phase === "handover") ? "none" : "flex";
     }
 
     var FAMILY_LABELS = { mouvement: "Mouvement", defense: "Défense", fusion: "Fusion", piege: "Piège", perturbation: "Perturbation", retour: "Retour" };
@@ -471,7 +520,7 @@ if (typeof document !== "undefined") {
       }
       if (id === "resurrection") {
         h += "<p><strong>Pion à ressusciter :</strong> " + g.graveyard[g.current].map(function (dp, ix) {
-          return choiceBtn(ui.pendingChoices.graveyardIndex === ix, "grave:" + ix, img(pawnURL(g.current, dp.shape), "choice-pawn", "") + "Pion " + esc(dp.shape));
+          return choiceBtn(ui.pendingChoices.graveyardIndex === ix, "grave:" + ix, img(pawnURL(g.current, dp.shape), "choice-pawn", "") + esc(pieceName(dp.shape)));
         }).join(" ") + "</p>";
       }
       if (id === "dernier_rempart") {
@@ -532,7 +581,8 @@ if (typeof document !== "undefined") {
     }
 
     function newGame() {
-      g = createGame(Date.now() % 100000);
+      gameSeed = Date.now() % 100000;
+      g = createGame(gameSeed, { deploy: true });
       gameSeq++;
       ui = freshUi(null);
       Sound.play("turn");
@@ -565,10 +615,10 @@ if (typeof document !== "undefined") {
           '<div class="rules-body">' + document.getElementById("help-content").innerHTML + "</div>" +
           '<button type="button" id="rules-back" class="btn-gold">RETOUR</button></div>';
       } else if (g.phase === "handover") {
-        html = '<div class="screen handover-screen px-box">' + img(spriteURL("hat"), "screen-icon", "") +
+        html = '<div class="screen handover-screen px-box opaque">' + img(spriteURL("hat"), "screen-icon", "") +
           '<h2 class="screen-title">PASSE L\'APPAREIL<br>AU JOUEUR 2</h2>' +
           "<p>Le Joueur 1 a choisi sa pièce essentielle en secret. Joueur 2, à toi de choisir la tienne — l'autre joueur ne regarde pas !</p>" +
-          '<div class="parade">' + img(pawnURL(2, "etoile"), "parade-pawn", "") + "</div>" +
+          '<div class="parade">' + img(pawnURL(2, "mage"), "parade-pawn", "") + "</div>" +
           '<button type="button" id="handover-ok" class="btn-gold">JE SUIS LE JOUEUR 2</button></div>';
       } else if (g.phase === "over" && !ui.victorySeen) {
         var ess = null;
@@ -576,7 +626,7 @@ if (typeof document !== "undefined") {
         html = '<div class="screen victory-screen px-box p' + g.winner + '">' +
           img(spriteURL("crown"), "vic-crown-big", "") +
           '<h2 class="victory-title">VICTOIRE !</h2>' +
-          '<div class="victory-pawn">' + img(pawnURL(g.winner, ess ? ess.shape : "etoile"), "victory-pawn-img", "") + "</div>" +
+          '<div class="victory-pawn">' + img(pawnURL(g.winner, ess ? ess.shape : "mage"), "victory-pawn-img", "") + "</div>" +
           '<p class="victory-who">JOUEUR ' + g.winner + (g.winner === 1 ? " · VIOLET" : " · ORANGE") + "</p>" +
           '<p class="victory-reason">' + esc(g.winReason || "") + ".</p>" +
           '<div class="victory-stats">' +
@@ -596,7 +646,7 @@ if (typeof document !== "undefined") {
       bind("menu-rules", function () { ui.screen = "rules"; Sound.play("select"); render(); });
       bind("menu-sound", toggleSound);
       bind("rules-back", function () { ui.screen = ui.started ? null : "menu"; Sound.play("select"); render(); });
-      bind("handover-ok", function () { g.phase = "select2"; g.current = 2; Sound.play("turn"); render(); });
+      bind("handover-ok", function () { passDevice(g); ui.reserveSel = 0; Sound.play("turn"); render(); });
       bind("vic-again", newGame);
       bind("vic-board", function () { ui.victorySeen = true; render(); });
       bind("vic-menu", function () { ui.victorySeen = true; ui.screen = "menu"; render(); });
@@ -607,7 +657,17 @@ if (typeof document !== "undefined") {
       var pawn = g.board[r][c];
       Sound.ensure();
 
-      if (g.phase === "select1" || g.phase === "select2") {
+      if (g.phase === "deploy1" || g.phase === "deploy2") {
+        var dp = g.phase === "deploy1" ? 1 : 2;
+        if (pawn && pawn.player === dp) { undeployPawn(g, dp, r, c); Sound.play("select"); render(); return; }
+        var dres = deployPawn(g, dp, r, c, ui.reserveSel || 0);
+        if (!dres.ok) { Sound.play("invalid"); logUi(dres.error); return; }
+        Sound.play("move");
+        if (ui.reserveSel >= g.reserve[dp].length) ui.reserveSel = 0;
+        render();
+        return;
+      }
+            if (g.phase === "select1" || g.phase === "select2") {
         var pl = g.phase === "select1" ? 1 : 2;
         if (!pawn || pawn.player !== pl) { Sound.play("invalid"); logUi("Joueur " + pl + " : clique un de TES pions de départ."); return; }
         var res = chooseEssential(g, pl, pawn.id);
@@ -631,9 +691,9 @@ if (typeof document !== "undefined") {
 
       if (pawn && pawn.player !== g.current && g.phase === "move" && !ui.selected) {
         var veiled = !!fxOf(pawn, "veil");
-        if (veiled) logUi("Pion " + pawn.shape + " adverse : ses propriétés sont VOILÉES.");
-        else if (pawn.props.length) logUi("Pion " + pawn.shape + " adverse — propriétés : " + pawn.props.map(function (p) { return PROPERTY_CATALOG[p.id].nom + (p.silenced ? " (réduite au silence)" : ""); }).join(", ") + ".");
-        else logUi("Pion " + pawn.shape + " adverse : aucune propriété.");
+        if (veiled) logUi(pieceName(pawn.shape) + " adverse : ses propriétés sont VOILÉES.");
+        else if (pawn.props.length) logUi(pieceName(pawn.shape) + " adverse — propriétés : " + pawn.props.map(function (p) { return PROPERTY_CATALOG[p.id].nom + (p.silenced ? " (réduite au silence)" : ""); }).join(", ") + ".");
+        else logUi(pieceName(pawn.shape) + " adverse : aucune propriété.");
         ui.inspectId = pawn.id;
         return;
       }
@@ -690,7 +750,7 @@ if (typeof document !== "undefined") {
         var p = g.board[r][c];
         if (p && p.player === g.current && p.essential) ess = [r, c];
       }
-      var txt = ess ? ("Ta pièce essentielle est en " + "ABCDEFGH"[ess[1]] + (8 - ess[0]) + " (forme " + g.board[ess[0]][ess[1]].shape + ").") : "Aucune pièce essentielle trouvée.";
+      var txt = ess ? ("Ta pièce essentielle est en " + "ABCDEFGH"[ess[1]] + (8 - ess[0]) + " (" + pieceName(g.board[ess[0]][ess[1]].shape) + ").") : "Aucune pièce essentielle trouvée.";
       if (g.suspicion[g.current]) txt += " Ta marque de soupçon est posée sur un pion non essentiel.";
       var si = g.sondeInfo[g.current];
       if (si) txt += " Sonde : la pièce essentielle adverse est dans la moitié " + si.half + " du plateau.";

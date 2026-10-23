@@ -8,8 +8,8 @@
  *
  * Contenu :
  *   - ART_COLORS / CARD_SUBJECTS : 30 sujets originaux 16x16, un par carte (G1) ;
- *   - PAWN_PALETTES : rampes à 5 tons par camp (contour, ombre, base, lumière, gemme) ;
- *   - boardTile() / boardFrame() : textures rétro du plateau et du cadre ;
+ *   - PIECE_SPRITES / pieceSprite() : 6 personnages 16x16, couleurs par camp ;
+ *   - terrainAt() / terrainTile() : terrain fantastique du plateau (pas de damier) ;
  *   - PIXEL_FONT : police 3x5 pour les coordonnées et les puces d'état ;
  *   - UI_SPRITES : chapeau de sorcier, couronne, icônes de compteurs, dos de carte…
  *   - outlinedPixels() : contour sombre automatique d'un sprite.
@@ -207,35 +207,61 @@ function outlinedPixels(map, colorFor) {
   return res;
 }
 
-/* ================= Pions ================= */
-/* Rampes à 5 tons par camp : palette limitée, lisible, distincte (violet / orange). */
+/* ================= Pièces : personnages (thème « ordre des mages ») =================
+   Décision d'Ekoue (2026-10-23) : des personnages plutôt que des formes
+   géométriques. 6 sprites 16x16 dessinés à la main ; T/t/D = couleur du camp
+   (base / lumière / ombre), le reste est neutre (peau, métal, pierre, bois).
+   Silhouettes distinctes, lisibles à petite taille ; contour sombre automatique. */
 var PAWN_PALETTES = {
-  1: { outline: "#1a0b38", shade: "#4c1d95", main: "#7c3aed", light: "#b79cff", spec: "#efe7ff", gem: "#f5c542", gemShade: "#b7791f" },
-  2: { outline: "#3b1104", shade: "#9a3412", main: "#ea580c", light: "#ffb37a", spec: "#fff1e0", gem: "#7dd3fc", gemShade: "#2563eb" }
+  1: { main: "#7c3aed", light: "#b79cff", dark: "#4c1d95", outline: "#1a0b38", gem: "#f5c542" },
+  2: { main: "#ea580c", light: "#ffb37a", dark: "#9a3412", outline: "#3b1104", gem: "#7dd3fc" }
+};
+var PIECE_COLORS = {
+  s: "#f2c79b", e: "#10101c", b: "#ece8f4", w: "#f3efff", y: "#f5c542", m: "#cbd5e1", M: "#7a8599",
+  n: "#8a5a2b", N: "#5a3618", g: "#8b8f9e", G: "#5e6272"
+};
+var PIECE_SPRITES = {
+  mage: [ // chapeau pointu, barbe, bâton à gemme
+    "................", "......tT....y...", ".....tTT...yyy..", ".....tTTD...y...",
+    "....tTTTD...n...", "..tTTTTTTTD.n...", "....seses...n...", "....sbbbs..sn...",
+    "...TbbbbbTTTn...", "...TTbbbTTD.n...", "...tTTbTTTD.n...", "...tTTTTTTD.n...",
+    "..tTTTTTTTTD.n..", "..tTTTTTTTTD.n..", "..DDDDDDDDDD.N..", "................"],
+  chevalier: [ // heaume à plumet, bouclier aux couleurs du camp, épée
+    "................", "........TT......", ".......TtT......", "......mmmm..w...",
+    ".....mmmmmM.w...", ".....mMeeMM.w...", ".....mmmmMM.w...", "..TTTTmmmmM.w...",
+    "..TttTMmmmMyyy..", "..TtyTMmmmM.n...", "..TttTMmmmMsn...", "...TTDMmmmM.....",
+    "....D.TTTTT.....", "......TDTDT.....", "......MM.MM.....", "................"],
+  archere: [ // capuche, arc tendu, carquois
+    "................", "......TTT.......", ".....TtTTT...n..", "....TtsssT..wn..",
+    "....TseseT..w.n.", "....TTsssT..w.n.", "...TTtTTTTTsw.n.", "..nTtTTTTTD.w.n.",
+    "..nTtTTTTTD.w.n.", "..yTTTyTTTD.w.n.", "...tTTTTTD..w.n.", "...tTTTTTD..wn..",
+    "...tTTTTTD..n...", "...TTTTTTD......", "....NN..NN......", "................"],
+  golem: [ // colosse de pierre, runes et cœur aux couleurs du camp
+    "................", "................", ".....gggggg.....", "....gGggggGg....",
+    "....gtgggtgg....", "....ggggggGg....", "..TTT.gGGg.TTT..", ".gggggggggggggG.",
+    ".gGgggTTggggGgG.", ".ggG.ggTTg.Gggg.", ".TTT.gggggg.TTT.", ".DDD.gggggG.DDD.",
+    ".....ggGggg.....", "....ggg..ggg....", "....GGG..GGG....", "................"],
+  hibou: [ // hibou familier perché sur une branche
+    "................", "................", "...T........T...", "...TT......TT...",
+    "...TTTTTTTTTT...", "..TwwwTTTTwwwT..", "..TwewTyyTwewT..", "..TwwwTyyTwwwT..",
+    "..TTTTTTTTTTTT..", "..TtTtTttTtTtT..", "..DTtTtTTtTtTD..", "...DTtTTTTtTD...",
+    "....DDTTTTDD....", "..nnnyynnyynnn..", "..NNNNNNNNNNNN..", "................"],
+  esprit: [ // feu follet aux couleurs du camp, cœur blanc
+    "................", ".......t........", "......tt....t...", "......tTt...t...",
+    ".....tTTt..tT...", "....tTTTTt.tT...", "...tTTwTTTtTT...", "...tTwwwTTTTT...",
+    "..tTwwwwwTTTD...", "..tTweweTwTTD...", "..tTwwwwwwTTD...", "..tTwwewwwTD....",
+    "...tTwwwwTTD....", "....DTTTTTD.....", ".....D.D.D......", "................"]
 };
 
-/* Sprite d'un pion : silhouette SPRITE_MAPS, contour, lumière en haut à gauche,
-   ombre en bas à droite (tons durs), reflet, gemme facettée au centre. */
-function pawnPixels(shapeMap, player) {
-  var pal = PAWN_PALETTES[player], out = [];
-  function on(r, c) { return shapeMap[r] && shapeMap[r][c] === "#"; }
-  for (var r = 0; r < 16; r++) {
-    out.push([]);
-    for (var c = 0; c < 16; c++) {
-      if (!on(r, c)) { out[r].push(null); continue; }
-      var col;
-      if (!on(r - 1, c) || !on(r + 1, c) || !on(r, c - 1) || !on(r, c + 1)) col = pal.outline;
-      else if ((r === 7 || r === 8) && (c === 7 || c === 8)) col = (r === 7 && c === 7) ? pal.spec : (r === 8 && c === 8 ? pal.gemShade : pal.gem);
-      else if ((r === 6 && (c === 7 || c === 8)) || (r === 9 && (c === 7 || c === 8)) || (c === 6 && (r === 7 || r === 8)) || (c === 9 && (r === 7 || r === 8))) col = pal.outline;
-      else if (!on(r - 2, c) || !on(r, c - 2)) col = (r + c) % 4 === 0 && !on(r - 2, c) && !on(r, c - 2) ? pal.spec : pal.light;
-      else if (!on(r + 2, c) || !on(r, c + 2)) col = pal.shade;
-      else if (r + c >= 19 && (r + c) % 2 === 0) col = pal.shade; // tramage damier dans l'ombre
-      else col = pal.main;
-      out[r].push(col);
-    }
-  }
-  return out;
+/* Sprite d'une pièce pour un camp (grille de couleurs, contour automatique). */
+function pieceSprite(shape, player) {
+  var pal = PAWN_PALETTES[player];
+  var cols = { T: pal.main, t: pal.light, D: pal.dark };
+  var grid = outlinedPixels(PIECE_SPRITES[shape], function (ch) { return cols[ch] || PIECE_COLORS[ch] || null; });
+  return grid.map(function (row) { return row.map(function (c) { return c === ART_INK ? pal.outline : c; }); });
 }
+/* Compatibilité : ancien nom (pawnPixels(map, player)) → personnage. */
+function pawnPixels(shape, player) { return pieceSprite(shape, player); }
 
 /* ================= Plateau ================= */
 /* Hachage déterministe (même résultat sous Node et dans le navigateur). */
@@ -245,47 +271,113 @@ function artHash(x, y, seed) {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 
-var BOARD_COLORS = {
-  /* Grès clair / pierre de lune sombre : contraste fort avec les DEUX camps
-     (violet et orange), sans reprendre leurs teintes. */
-  light: { base: "#d8ccaa", hi: "#eee5c6", lo: "#b3a47c", grit: "#c8ba95", line: "#8f7f58" },
-  dark:  { base: "#2e5257", hi: "#3f6a6f", lo: "#1d3639", grit: "#284a4f", line: "#16292c", rune: "#5fb3a8" }
+/* ================= Plateau : terrain fantastique =================
+   Décision d'Ekoue (2026-10-23) : PLUS DE DAMIER. Le plateau est une carte de
+   terrain continue (régions par bruit lissé), symétrique par rotation de 180°
+   pour que les deux camps aient le même décor. Les biomes sont PUREMENT
+   décoratifs : toutes les cases restent des cases normales. Un liseré sombre
+   d'1 px sépare les cases pour garder la grille lisible. */
+var TERRAIN = {
+  herbe:   { base: "#3f6b37", hi: "#548a46", lo: "#2e5229", dot: "#6aa856" },
+  prairie: { base: "#4a7a3c", hi: "#5f9a4c", lo: "#365c2c", flowers: ["#f5c542", "#f3efff", "#7dd3fc"] },
+  dalle:   { base: "#6f6a7d", hi: "#8d879c", lo: "#57526a", joint: "#3f3b4f", moss: "#4f7a3e" },
+  sable:   { base: "#bfa66e", hi: "#d6c28e", lo: "#9c8656", dot: "#a8915c" },
+  cristal: { base: "#2e5257", hi: "#3f6a6f", lo: "#1d3639", shard: "#7de0d6", shardHi: "#d8fff9" },
+  place:   { base: "#6b6478", hi: "#8a8298", lo: "#4b4558", rune: "#e9c46a", runeLo: "#9a6b1f" }
 };
-var RUNE_ENGRAVINGS = [ // gravures 5x5 sur certaines cases foncées
-  [".#.#.", ".#.#.", "..#..", "..#..", "..#.."],
-  ["#...#", ".#.#.", "..#..", ".#.#.", "#...#"],
-  ["..#..", ".###.", "..#..", "..#..", ".#.#."],
-  ["###..", "#....", "###..", "..#..", "###.."]
-];
 
-/* Dalle 16x16 : biseau 1 px (lumière haut-gauche, ombre bas-droite), grain
-   tramé, fissure ou gravure runique selon la variante. Tons durs uniquement. */
-function boardTile(kind, r, c) {
-  var P = BOARD_COLORS[kind], seed = r * 8 + c + (kind === "dark" ? 101 : 7), px = [];
-  for (var y = 0; y < 16; y++) {
-    px.push([]);
-    for (var x = 0; x < 16; x++) {
-      var col = P.base;
-      if ((x + y) % 2 === 0 && artHash(x, y, seed) < 0.22) col = P.grit;
-      if (y === 0 || x === 0) col = P.hi;
-      if (y === 15 || x === 15) col = P.lo;
-      if ((y === 1 && x > 0 && x < 15) || (x === 1 && y > 0 && y < 15)) col = (x + y) % 2 ? P.hi : col;
-      px[y].push(col);
-    }
+function smoothNoise(x, y, seed) { // bruit de valeur lissé (bilinéaire), déterministe
+  var x0 = Math.floor(x), y0 = Math.floor(y), fx = x - x0, fy = y - y0;
+  function v(a, b) { return artHash(a, b, seed); }
+  var top = v(x0, y0) * (1 - fx) + v(x0 + 1, y0) * fx;
+  var bot = v(x0, y0 + 1) * (1 - fx) + v(x0 + 1, y0 + 1) * fx;
+  return top * (1 - fy) + bot * fy;
+}
+
+/* Carte des biomes : symétrique (r,c) ~ (7-r,7-c), place runique au centre.
+   Répartition par RANG du bruit (et non par seuils) : chaque partie a toujours
+   un terrain varié — ~30 % herbe, 22 % prairie, 20 % dalles, 14 % sable,
+   14 % cristaux — dont seule la disposition change avec la graine. */
+var TERRAIN_SHARES = [["herbe", 0.30], ["prairie", 0.22], ["dalle", 0.20], ["sable", 0.14], ["cristal", 0.14]];
+var _terrainCache = {};
+function terrainMap(seed) {
+  seed = seed || 1;
+  if (_terrainCache[seed]) return _terrainCache[seed];
+  var cells = [], r, c, map = [];
+  for (r = 0; r < 8; r++) { map.push([]); for (c = 0; c < 8; c++) map[r].push(null); }
+  for (r = 0; r < 8; r++) for (c = 0; c < 8; c++) {
+    if (r >= 3 && r <= 4 && c >= 3 && c <= 4) { map[r][c] = "place"; continue; }
+    if (r * 8 + c > (7 - r) * 8 + (7 - c)) continue; // case canonique de la paire symétrique
+    cells.push({ r: r, c: c, n: smoothNoise(c / 2.4, r / 2.4, seed) + artHash(r, c, seed + 3) * 0.08 });
   }
-  var variant = Math.floor(artHash(r, c, kind === "dark" ? 3 : 5) * 10);
-  if (variant < 3) { // fissure
-    var fx = 3 + Math.floor(artHash(c, r, 11) * 9), fy = 3 + Math.floor(artHash(r, c, 13) * 6);
-    for (var i = 0; i < 6; i++) {
-      var yy = fy + i, xx = fx + (i % 3 === 2 ? 1 : 0) + Math.floor(i / 3);
-      if (yy > 1 && yy < 15 && xx > 1 && xx < 15) px[yy][xx] = P.line;
+  cells.sort(function (x, y) { return x.n - y.n; });
+  var k = 0, acc = 0;
+  cells.forEach(function (cell, i) {
+    while (k < TERRAIN_SHARES.length - 1 && i >= Math.round((acc + TERRAIN_SHARES[k][1]) * cells.length)) { acc += TERRAIN_SHARES[k][1]; k++; }
+    map[cell.r][cell.c] = map[7 - cell.r][7 - cell.c] = TERRAIN_SHARES[k][0];
+  });
+  _terrainCache[seed] = map;
+  return map;
+}
+function terrainAt(r, c, seed) { return terrainMap(seed)[r][c]; }
+
+/* Dalle 16x16 du biome ; (r, c) servent de graine pour varier les détails.
+   Les deux dernières lignes/colonnes forment le liseré de grille. */
+function terrainTile(kind, r, c) {
+  var P = TERRAIN[kind], seed = r * 8 + c + 17, px = [], x, y;
+  for (y = 0; y < 16; y++) { px.push([]); for (x = 0; x < 16; x++) px[y].push(P.base); }
+  function set(xx, yy, col) { if (xx >= 0 && yy >= 0 && xx < 15 && yy < 15) px[yy][xx] = col; }
+  for (y = 0; y < 15; y++) for (x = 0; x < 15; x++) if ((x + y) % 2 === 0 && artHash(x, y, seed) < 0.18) px[y][x] = P.lo;
+  if (kind === "herbe" || kind === "prairie") {
+    for (var i = 0; i < 9; i++) { // brins d'herbe
+      x = Math.floor(artHash(i, 1, seed) * 14); y = 2 + Math.floor(artHash(1, i, seed) * 12);
+      set(x, y, P.hi); set(x, y - 1, P.hi); set(x + 1, y + 1, P.lo);
     }
-  } else if (kind === "dark" && variant > 7) { // gravure runique
-    var g = RUNE_ENGRAVINGS[(r * 3 + c) % RUNE_ENGRAVINGS.length];
-    for (var gy = 0; gy < 5; gy++) for (var gx = 0; gx < 5; gx++)
-      if (g[gy][gx] === "#") { px[5 + gy][5 + gx] = P.line; if (gx < 4 && g[gy][gx + 1] !== "#") px[5 + gy][6 + gx] = P.rune; }
+    if (kind === "prairie") for (i = 0; i < 4; i++) {
+      x = 1 + Math.floor(artHash(i, 7, seed) * 12); y = 1 + Math.floor(artHash(7, i, seed) * 12);
+      var fc = P.flowers[i % P.flowers.length];
+      set(x, y, fc); set(x - 1, y, fc); set(x + 1, y, fc); set(x, y - 1, fc); set(x, y + 1, "#2e5229");
+    }
+  } else if (kind === "dalle") { // dalles appareillées + mousse
+    for (x = 0; x < 15; x++) { set(x, 7, P.joint); }
+    for (y = 0; y < 7; y++) set(7 + (seed % 3) - 1, y, P.joint);
+    for (y = 8; y < 15; y++) set(3 + (seed % 4), y, P.joint);
+    for (x = 0; x < 15; x++) { set(x, 0, P.hi); set(x, 8, P.hi); }
+    for (i = 0; i < 6; i++) if (artHash(i, 3, seed) < 0.6) set(Math.floor(artHash(3, i, seed) * 14), 6 + (i % 3) * 3, P.moss);
+  } else if (kind === "sable") { // ondulations et cailloux
+    for (y = 3; y < 15; y += 4) for (x = 0; x < 15; x++) if ((x + y + seed) % 6 < 3) set(x, y + ((x >> 2) % 2), P.hi);
+    for (i = 0; i < 3; i++) set(Math.floor(artHash(i, 5, seed) * 14), Math.floor(artHash(5, i, seed) * 14), P.dot);
+  } else if (kind === "cristal") { // éclats de cristal lumineux
+    [[3, 11, 4], [10, 9, 5], [7, 13, 3]].forEach(function (cp, j) {
+      var cx = (cp[0] + seed + j) % 12 + 1;
+      for (var h = 0; h < cp[2]; h++) { set(cx, cp[1] - h, P.shard); set(cx + 1, cp[1] - h, h === cp[2] - 1 ? P.shardHi : P.lo); }
+      set(cx, cp[1] - cp[2], P.shardHi);
+    });
+  } else if (kind === "place") { // pavés de la place runique
+    for (y = 0; y < 15; y++) for (x = 0; x < 15; x++) if (x % 5 === 4 || y % 5 === 4) px[y][x] = P.lo;
+    for (y = 0; y < 15; y += 5) for (x = 0; x < 15; x += 5) set(x, y, P.hi);
   }
+  // Liseré de grille : 1 px sombre à droite et en bas de chaque case
+  for (i = 0; i < 16; i++) { px[15][i] = "#141a14"; px[i][15] = "#141a14"; }
   return px;
+}
+
+/* Grand cercle runique sur la place centrale (2x2 cases) : liste de pixels
+   relatifs au coin haut-gauche de la place (32x32). */
+function runeCirclePixels() {
+  var out = [], a, r;
+  for (a = 0; a < 120; a++) {
+    var ang = a / 120 * Math.PI * 2;
+    [[13, TERRAIN.place.rune], [11, TERRAIN.place.runeLo]].forEach(function (ring, i) {
+      if (i === 1 && a % 3 === 0) return;
+      out.push([Math.round(15.5 + Math.cos(ang) * ring[0]), Math.round(15.5 + Math.sin(ang) * ring[0]), ring[1]]);
+    });
+  }
+  for (r = 0; r < 6; r++) { // 6 rayons courts
+    var an = r / 6 * Math.PI * 2;
+    for (var d = 5; d < 10; d++) out.push([Math.round(15.5 + Math.cos(an) * d), Math.round(15.5 + Math.sin(an) * d), TERRAIN.place.rune]);
+  }
+  return out;
 }
 
 /* ================= Police 3x5 (coordonnées, puces d'état) ================= */
@@ -370,7 +462,8 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     ART_INK: ART_INK, ART_COLORS: ART_COLORS, CARD_SUBJECTS: CARD_SUBJECTS, shadeHex: shadeHex,
     subjectPixels: subjectPixels, outlinedPixels: outlinedPixels, PAWN_PALETTES: PAWN_PALETTES,
-    pawnPixels: pawnPixels, artHash: artHash, BOARD_COLORS: BOARD_COLORS, boardTile: boardTile,
+    PIECE_SPRITES: PIECE_SPRITES, PIECE_COLORS: PIECE_COLORS, pieceSprite: pieceSprite, pawnPixels: pawnPixels,
+    artHash: artHash, TERRAIN: TERRAIN, terrainAt: terrainAt, terrainMap: terrainMap, terrainTile: terrainTile, runeCirclePixels: runeCirclePixels,
     PIXEL_FONT: PIXEL_FONT, UI_SPRITES: UI_SPRITES, BOARD_MARKERS: BOARD_MARKERS, CHIP_COLORS: CHIP_COLORS
   };
 }

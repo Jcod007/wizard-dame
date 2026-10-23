@@ -3,7 +3,8 @@
  * Wizard Dame — engine.js : LOGIQUE PURE du jeu (migration Phaser, 2026-10-23).
  * Extrait mécaniquement de game.js : constantes, catalogue CARDS, decks,
  * machine à états, système de propriétés provisoire, CARD_FX, et les DONNÉES
- * pixel art (SPRITE_MAPS, scènes procédurales) — comme données uniquement.
+ * pixel art des scènes de cartes — comme données uniquement (les sprites des
+ * personnages et du terrain sont dans art.js).
  * ZÉRO référence DOM, ZÉRO référence Phaser : chargeable sous Node (tests)
  * exactement comme game.js. Le rendu vit dans phaser-main.js (plateau) et
  * ui-dom.js (cartes/menus en DOM, sons Web Audio).
@@ -24,48 +25,14 @@
  * essentielle NE PEUT PAS être fusionnée (règle provisoire, signalée).
  */
 
-/* ================= Sprites pixel art (hérités de la v1) ================= */
+/* ================= Pièces : personnages (décision d'Ekoue, 2026-10-23) =================
+ * Les anciennes formes géométriques (cosmétiques) sont remplacées par 6 personnages
+ * du thème « ordre des mages ». Toujours cosmétiques : aucune règle n'en dépend.
+ * Les sprites vivent dans art.js (PIECE_SPRITES). */
 
-var SHAPES = ["cercle", "carre", "triangle", "losange", "hexagone", "etoile"];
-
-var SPRITE_MAPS = {
-  cercle: [ // section 12 : rond franc, bien distinct de l'hexagone
-    "................", ".....######.....", "...##########...", "..############..",
-    "..############..", ".##############.", ".##############.", ".##############.",
-    ".##############.", ".##############.", ".##############.", "..############..",
-    "..############..", "...##########...", ".....######.....", "................"
-  ],
-  carre: [
-    "................", ".##############.", ".##############.", ".##############.",
-    ".##############.", ".##############.", ".##############.", ".##############.",
-    ".##############.", ".##############.", ".##############.", ".##############.",
-    ".##############.", ".##############.", ".##############.", "................"
-  ],
-  triangle: [
-    "................", ".......##.......", ".......##.......", "......####......",
-    "......####......", ".....######.....", ".....######.....", "....########....",
-    "....########....", "...##########...", "...##########...", "..############..",
-    "..############..", ".##############.", ".##############.", "................"
-  ],
-  losange: [
-    ".......##.......", "......####......", ".....######.....", "....########....",
-    "...##########...", "..############..", ".##############.", ".##############.",
-    ".##############.", ".##############.", "..############..", "...##########...",
-    "....########....", ".....######.....", "......####......", ".......##......."
-  ],
-  hexagone: [ // section 12 : vrai hexagone (pointes latérales), lisible à petite taille
-    "................", "................", "....########....", "...##########...",
-    "...##########...", "..############..", "..############..", ".##############.",
-    ".##############.", "..############..", "..############..", "...##########...",
-    "...##########...", "....########....", "................", "................"
-  ],
-  etoile: [
-    ".......##.......", ".......##.......", "......####......", "......####......",
-    ".....######.....", ".##############.", "..############..", "...##########...",
-    "....########....", "....########....", "...##########...", "...###....###...",
-    "..###......###..", "..##........##..", ".###........###.", "................"
-  ]
-};
+var SHAPES = ["mage", "chevalier", "archere", "golem", "hibou", "esprit"];
+var PIECE_NAMES = { mage: "Mage", chevalier: "Chevalier", archere: "Archère", golem: "Golem", hibou: "Hibou", esprit: "Esprit" };
+function pieceName(shape) { return PIECE_NAMES[shape] || shape; }
 
 var PLAYER_PALETTES = {
   1: { outline: "#241047", main: "#7c3aed", light: "#b79cff", gem: "#f5c542" },
@@ -350,18 +317,34 @@ function buildDeckFor(player, rng) {
   return shuffle(deck, rng);
 }
 
-function createGame(seed) {
+/* opts.deploy (décision d'Ekoue, 2026-10-23) : PLACEMENT LIBRE ET SECRET.
+   Plateau vide ; chaque joueur pose ses 12 pions où il veut dans ses 3 rangées
+   (J1 : rangées 1-3 du bas, J2 : rangées 6-8), puis choisit sa pièce essentielle :
+     deploy1 -> select1 -> handover -> deploy2 -> select2 -> move.
+   Sans opts.deploy, mise en place historique (cases foncées des 3 premières
+   rangées) — conservée pour les suites de tests et la simulation. */
+var PIECES_PER_PLAYER = 12;
+function deployRows(player) { return player === 1 ? [5, 6, 7] : [0, 1, 2]; }
+
+function createGame(seed, opts) {
+  opts = opts || {};
   _pawnSeq = 0;
   var rng = makeRng(seed == null ? 987654321 : seed);
   var board = [];
   for (var r = 0; r < 8; r++) { board.push([]); for (var c = 0; c < 8; c++) board[r].push(null); }
-  var idx = 0, rr, cc;
-  for (rr = 0; rr < 3; rr++) for (cc = 0; cc < 8; cc++) if ((rr + cc) % 2 === 1) board[rr][cc] = makePawn(2, idx++);
-  idx = 0;
-  for (rr = 5; rr < 8; rr++) for (cc = 0; cc < 8; cc++) if ((rr + cc) % 2 === 1) board[rr][cc] = makePawn(1, idx++);
+  var idx = 0, rr, cc, reserve = { 1: [], 2: [] };
+  if (opts.deploy) {
+    for (idx = 0; idx < PIECES_PER_PLAYER; idx++) { reserve[1].push(makePawn(1, idx)); reserve[2].push(makePawn(2, idx)); }
+  } else {
+    for (rr = 0; rr < 3; rr++) for (cc = 0; cc < 8; cc++) if ((rr + cc) % 2 === 1) board[rr][cc] = makePawn(2, idx++);
+    idx = 0;
+    for (rr = 5; rr < 8; rr++) for (cc = 0; cc < 8; cc++) if ((rr + cc) % 2 === 1) board[rr][cc] = makePawn(1, idx++);
+  }
   var g = {
     board: board, rngState: null,
-    phase: "select1",            // select1 -> handover -> select2 -> move -> card -> over
+    deployMode: !!opts.deploy,
+    reserve: reserve,            // pions encore à poser (placement libre)
+    phase: opts.deploy ? "deploy1" : "select1", // [deploy1 ->] select1 -> handover -> [deploy2 ->] select2 -> move -> card -> over
     current: 1,
     turnCount: { 1: 0, 2: 0 },   // nombre de tours commencés par joueur
     round: 1,
@@ -532,6 +515,54 @@ function playerHasAnyMove(g, player) {
 
 /* ---- Sélection secrète de la pièce essentielle ---- */
 
+/* ---- Placement libre et secret ---- */
+
+function deployPawn(g, player, r, c, reserveIndex) {
+  if (g.phase !== "deploy" + player) return { ok: false, error: "Ce n'est pas le moment de placer tes pions." };
+  if (!inB(r, c) || deployRows(player).indexOf(r) < 0) return { ok: false, error: "Place tes pions dans TES 3 rangées de départ." };
+  if (g.board[r][c]) return { ok: false, error: "Cette case est déjà occupée." };
+  var res = g.reserve[player];
+  if (!res.length) return { ok: false, error: "Tous tes pions sont déjà placés." };
+  var i = reserveIndex == null ? 0 : reserveIndex;
+  if (i < 0 || i >= res.length) return { ok: false, error: "Pion de réserve introuvable." };
+  g.board[r][c] = res.splice(i, 1)[0];
+  return { ok: true, pawn: g.board[r][c] };
+}
+
+function undeployPawn(g, player, r, c) {
+  if (g.phase !== "deploy" + player) return { ok: false, error: "Ce n'est pas le moment de placer tes pions." };
+  var p = pawnAt(g, r, c);
+  if (!p || p.player !== player) return { ok: false, error: "Aucun de tes pions sur cette case." };
+  g.board[r][c] = null;
+  g.reserve[player].push(p);
+  return { ok: true };
+}
+
+/* Pose les pions restants au hasard (graine de la partie) dans les cases libres. */
+function autoDeploy(g, player) {
+  if (g.phase !== "deploy" + player) return { ok: false, error: "Ce n'est pas le moment de placer tes pions." };
+  var free = [];
+  deployRows(player).forEach(function (r) { for (var c = 0; c < 8; c++) if (!g.board[r][c]) free.push([r, c]); });
+  shuffle(free, g._rng);
+  while (g.reserve[player].length && free.length) { var cell = free.pop(); g.board[cell[0]][cell[1]] = g.reserve[player].shift(); }
+  return { ok: true };
+}
+
+function finishDeploy(g, player) {
+  if (g.phase !== "deploy" + player) return { ok: false, error: "Ce n'est pas le moment de placer tes pions." };
+  if (g.reserve[player].length) return { ok: false, error: "Il te reste " + g.reserve[player].length + " pion(s) à placer." };
+  g.phase = "select" + player;
+  return { ok: true };
+}
+
+/* Passation de l'appareil au Joueur 2 (écran de l'interface). */
+function passDevice(g) {
+  if (g.phase !== "handover") return { ok: false, error: "Pas de passation en cours." };
+  g.current = 2;
+  g.phase = g.deployMode ? "deploy2" : "select2";
+  return { ok: true };
+}
+
 function chooseEssential(g, player, pawnId) {
   if (g.phase !== "select" + player) return { ok: false, error: "Ce n'est pas le moment de choisir." };
   var f = findPawn(g, pawnId);
@@ -600,7 +631,7 @@ function onPawnLands(g, pawn, r, c) {
       pawn.frozenForTurn = g.turnCount[pawn.player] + 1; // immobilisé pendant SON prochain tour
       pawn.frozenLastTurn = pawn.frozenForTurn;
       events.push({ type: "trapTriggered", r: r, c: c, pawnId: pawn.id });
-      g.log.push("Un piège runique se déclenche ! Un pion " + pawn.shape + " est immobilisé pour son prochain tour.");
+      g.log.push("Un piège runique se déclenche ! Un pion " + pieceName(pawn.shape) + " est immobilisé pour son prochain tour.");
     }
   }
   // Garde de case alliée ?
@@ -610,7 +641,7 @@ function onPawnLands(g, pawn, r, c) {
       g.guards.splice(j, 1);
       addFx(pawn, "shield", 99, "untilCapture");
       events.push({ type: "guardTriggered", r: r, c: c, pawnId: pawn.id });
-      g.log.push("La garde de case protège un pion " + pawn.shape + " (Bouclier runique).");
+      g.log.push("La garde de case protège un pion " + pieceName(pawn.shape) + " (Bouclier runique).");
     }
   }
   // Leurres : disparition si un pion adverse s'approche à 1 case (distance de Tchebychev).
@@ -662,7 +693,7 @@ function applyMove(g, r, c, move) {
       g.board[cr][cc] = null;
       g.captured[g.current] += 1;
       events.push({ type: "capture", r: cr, c: cc, victimId: victim.id });
-      g.log.push("Joueur " + g.current + " capture un pion " + victim.shape + ".");
+      g.log.push("Joueur " + g.current + " capture un pion " + pieceName(victim.shape) + ".");
       // Pièce essentielle d'abord (§5.3 étape 6)
       if (victim.essential) {
         g.phase = "card"; // la résolution continue proprement avant la victoire
@@ -673,7 +704,7 @@ function applyMove(g, r, c, move) {
     }
   }
   if (!found.capture) {
-    g.log.push("Joueur " + g.current + " déplace un pion " + pawn.shape + " de " + cellName(r, c) + " vers " + cellName(move.toR, move.toC) + ".");
+    g.log.push("Joueur " + g.current + " déplace un pion " + pieceName(pawn.shape) + " de " + cellName(r, c) + " vers " + cellName(move.toR, move.toC) + ".");
   }
   events = events.concat(onPawnLands(g, pawn, move.toR, move.toC));
   g.movedThisTurn = true;
@@ -699,15 +730,15 @@ function tickFx(g, justPlayed) {
           if (f.kind === "silence") p.props.forEach(function (pr) { pr.silenced = false; });
           if (f.thenFreeze) {
             p.frozenForTurn = g.turnCount[p.player] + 1;
-            g.log.push("Effet prolongé par pacte : un pion " + p.shape + " sera immobilisé à son prochain tour.");
+            g.log.push("Effet prolongé par pacte : un pion " + pieceName(p.shape) + " sera immobilisé à son prochain tour.");
           }
           if (f.kind === "eveille") {
             p.frozenForTurn = g.turnCount[p.player] + 1;
-            g.log.push("L'éveil retombe : un pion " + p.shape + " sera immobilisé à son prochain tour.");
+            g.log.push("L'éveil retombe : un pion " + pieceName(p.shape) + " sera immobilisé à son prochain tour.");
           }
           if (f.kind === "pacte" && f.data && f.data.thenFreeze) {
             p.frozenForTurn = g.turnCount[p.player] + 1;
-            g.log.push("Le pacte instable se paie : un pion " + p.shape + " sera immobilisé à son prochain tour.");
+            g.log.push("Le pacte instable se paie : un pion " + pieceName(p.shape) + " sera immobilisé à son prochain tour.");
           }
           if (f.kind === "suspendedProp" && f.data && f.data.propId) {
             addProp(p, f.data.propId);
@@ -836,7 +867,7 @@ function playCard(g, handIndex, targets, choices) {
       merged.props = pos.concat(neg);
       g.board[pos2.r][pos2.c] = null;
       g.board[pos1.r][pos1.c] = merged;
-      g.log.push("Fusion ! Un nouveau pion " + merged.shape + " naît (propriétés provisoires : " +
+      g.log.push("Fusion ! Un nouveau pion " + pieceName(merged.shape) + " naît (propriétés provisoires : " +
         (merged.props.map(function (p) { return PROPERTY_CATALOG[p.id].nom; }).join(", ") || "aucune") + ").");
       break;
     }
@@ -1026,7 +1057,7 @@ function playCard(g, handIndex, targets, choices) {
       dead.fx = []; dead.frozenForTurn = -1; dead.essential = false;
       dead.props = dead.props.filter(function (pr) { return PROPERTY_CATALOG[pr.id].positive; }).slice(0, 1);
       g.board[rc.r][rc.c] = dead;
-      g.log.push("Résurrection ! Un pion " + dead.shape + " revient en jeu.");
+      g.log.push("Résurrection ! Un pion " + pieceName(dead.shape) + " revient en jeu.");
       break;
     }
     case "sacrifice": {
@@ -1043,7 +1074,7 @@ function playCard(g, handIndex, targets, choices) {
       while (g.hands[me].length > HAND_MAX) g.discards[me].push(g.hands[me].pop());
       g.cardPlayedThisTurn = true;
       g.lastEvent = { type: "card", card: id, player: me };
-      g.log.push("Sacrifice : un pion " + sap.shape + " est perdu définitivement ; le Joueur " + me + " pioche 2 cartes.");
+      g.log.push("Sacrifice : un pion " + pieceName(sap.shape) + " est perdu définitivement ; le Joueur " + me + " pioche 2 cartes.");
       fxCells();
       return { ok: true, events: events };
     }
@@ -1131,7 +1162,9 @@ function cardNumber(id) { return CARD_IDS.indexOf(id) + 1; }
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
-    SHAPES: SHAPES, SPRITE_MAPS: SPRITE_MAPS, PLAYER_PALETTES: PLAYER_PALETTES,
+    SHAPES: SHAPES, PIECE_NAMES: PIECE_NAMES, pieceName: pieceName, PLAYER_PALETTES: PLAYER_PALETTES,
+    deployRows: deployRows, deployPawn: deployPawn, undeployPawn: undeployPawn, autoDeploy: autoDeploy,
+    finishDeploy: finishDeploy, passDevice: passDevice, PIECES_PER_PLAYER: PIECES_PER_PLAYER,
     FAMILY_GLYPHS: FAMILY_GLYPHS, FAMILY_COLORS: FAMILY_COLORS, SCENE_PALETTES: SCENE_PALETTES,
     CARDS: CARDS, CARD_IDS: CARD_IDS, CARD_FX: CARD_FX, DECK_RECIPES: DECK_RECIPES,
     PROPERTY_CATALOG: PROPERTY_CATALOG, MUTATION_POOL: MUTATION_POOL,

@@ -150,7 +150,10 @@ let handJ2FirstTurn = null;
 }
 // A13 sprites / glyphes
 {
-  let okS = true; const maps = Object.values(M.SPRITE_MAPS);
+  // 2026-10-23 : les formes sont devenues des personnages (art.js, PIECE_SPRITES) ;
+  // on vérifie leurs silhouettes (tout pixel non vide -> "#") avec le même critère.
+  const ART = require(__dirname + "/../art.js");
+  let okS = true; const maps = M.SHAPES.map(sh => ART.PIECE_SPRITES[sh].map(row => row.replace(/[^.]/g, "#")));
   maps.forEach(mp => { if (mp.length !== 16 || mp.some(row => row.length !== 16 || /[^.#]/.test(row))) okS = false; });
   const distinct = new Set(maps.map(m => m.join("|"))).size;
   let okG = true; Object.values(M.FAMILY_GLYPHS).forEach(mp => { if (mp.length !== 12 || mp.some(row => row.length !== 12)) okG = false; });

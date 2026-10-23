@@ -66,8 +66,8 @@
   }
 
   /* Plateau complet : cadre biseauté, rivets dorés, coordonnées en police
-     pixel 3x5 (A-H, 8-1 comme cellName()), dalles texturées. */
-  function drawBoard(put) {
+     pixel 3x5 (A-H, 8-1 comme cellName()), terrain fantastique, place runique. */
+  function drawBoard(put, seed) {
     var F = { base: "#2b1f4a", hi: "#4a3a7a", lo: "#160f2b", gold: "#e9c46a", goldLo: "#9a6b1f", ink: ART_INK };
     for (var y = 0; y < SIZE; y++) for (var x = 0; x < SIZE; x++) {
       var col = F.base;
@@ -99,11 +99,13 @@
       glyph(put, N, 3, gy + 1, F.ink); glyph(put, N, 2, gy, F.gold);
       glyph(put, N, SIZE - 5, gy + 1, F.ink); glyph(put, N, SIZE - 6, gy, F.gold);
     }
-    // Dalles
+    // Terrain fantastique (art.js) : plus de damier — biomes continus, symétriques.
     for (var rr = 0; rr < 8; rr++) for (var cc = 0; cc < 8; cc++) {
-      var t = boardTile((rr + cc) % 2 === 0 ? "light" : "dark", rr, cc);
+      var t = terrainTile(terrainAt(rr, cc, seed), rr, cc);
       for (var ty = 0; ty < 16; ty++) for (var tx = 0; tx < 16; tx++) put(cx(cc) + tx, cy(rr) + ty, t[ty][tx]);
     }
+    // Grand cercle runique sur la place centrale (cases D4-E5)
+    runeCirclePixels().forEach(function (q) { put(cx(3) + q[0], cy(3) + q[1], q[2]); });
   }
 
   /* Surbrillances 16x16 en deux images (clignotement en pas discrets). */
@@ -128,6 +130,9 @@
       } else if (kind === "card") { // cible de carte : pointillés dorés + coins
         for (i = 0; i < 16; i++) if ((i + frame) % 2 === 0) { put(i, 0, Y); put(i, 15, Y); put(0, i, Y); put(15, i, Y); }
         [[1, 1], [14, 1], [1, 14], [14, 14]].forEach(function (p) { put(p[0], p[1], Yh); });
+      } else if (kind === "zone") { // zone de déploiement : pointillés dorés + losange
+        for (i = 1; i < 15; i++) if ((i + frame) % 3 === 0) { put(i, 1, Y); put(i, 14, Y); put(1, i, Y); put(14, i, Y); }
+        put(7, 6, Yh); put(6, 7, Y); put(8, 7, Y); put(7, 8, Y);
       } else if (kind === "hover") { // coins blancs du survol
         [[0, 0, 1, 1], [15, 0, -1, 1], [0, 15, 1, -1], [15, 15, -1, -1]].forEach(function (k) {
           for (i = 0; i < 3; i++) { put(k[0] + i * k[2], k[1], W); put(k[0], k[1] + i * k[3], W); }
@@ -140,10 +145,9 @@
   function chipGlyph(t) { return PIXEL_FONT[t] ? t : (t === "É" ? "E" : "?"); }
 
   function generateTextures(scene) {
-    canvasTex(scene, "board", SIZE, SIZE, drawBoard);
     [1, 2].forEach(function (player) {
       SHAPES.forEach(function (shape) {
-        var grid = pawnPixels(SPRITE_MAPS[shape], player);
+        var grid = pieceSprite(shape, player);
         gridTex(scene, "pawn-" + player + "-" + shape, grid);
         // Silhouette blanche (flash de capture / transformation) et fantôme gris
         // (leurre) : textures dédiées, pas de teinte GPU — identique en Canvas et WebGL.
@@ -159,7 +163,7 @@
       for (var x = 1; x < 11; x++) put(x, 1, "#0b0714");
       for (x = 3; x < 9; x++) { put(x, 0, "#0b0714"); put(x, 2, "#0b0714"); }
     });
-    ["move", "capture", "select", "card", "hover"].forEach(function (k) {
+    ["move", "capture", "select", "card", "hover", "zone"].forEach(function (k) {
       canvasTex(scene, "hl-" + k + "-0", 16, 16, hlDraw(k, 0));
       canvasTex(scene, "hl-" + k + "-1", 16, 16, hlDraw(k, 1));
     });
@@ -198,7 +202,8 @@
 
     create() {
       var self = this;
-      this.add.image(0, 0, "board").setOrigin(0, 0).setDepth(0);
+      this.terrainSeed = null;
+      this.boardImg = this.add.image(0, 0, this.boardKey(1)).setOrigin(0, 0).setDepth(0);
       this.pawnRecs = {};    // id -> {container, img, shadow, r, c, hopping, sig}
       this.dynamic = [];     // objets reconstruits à chaque sync
       this.blinkers = [];    // surbrillances à 2 images
@@ -209,6 +214,12 @@
       this.time.addEvent({ delay: 300, loop: true, callback: function () {
         self.blinkFrame ^= 1;
         self.blinkers.forEach(function (b) { if (b.active) b.setTexture(b.getData("base") + "-" + self.blinkFrame); });
+        // Animation de repos : chaque personnage respire d'1 px, en décalé.
+        self.bobTick = (self.bobTick || 0) + 1;
+        Object.keys(self.pawnRecs).forEach(function (id) {
+          var rec = self.pawnRecs[id];
+          if (!rec.hopping) rec.img.setY(((self.bobTick >> 1) + rec.bobPhase) % 2 ? -1 : 0);
+        });
       } });
       this.input.on("pointermove", function (p) {
         var cell = self.cellAt(p.worldX, p.worldY);
@@ -223,6 +234,12 @@
       sceneRef = this;
       fitToContainer();
       if (storedView) this.applyView();
+    }
+
+    boardKey(seed) {
+      var key = "board-" + seed;
+      canvasTex(this, key, SIZE, SIZE, function (put) { drawBoard(put, seed); });
+      return key;
     }
 
     cellAt(x, y) {
@@ -248,8 +265,13 @@
         this.pawnRecs = {};
         this.gameId = view.gameId;
       }
+      if (view.terrainSeed && view.terrainSeed !== this.terrainSeed) { // terrain propre à chaque partie
+        this.terrainSeed = view.terrainSeed;
+        this.boardImg.setTexture(this.boardKey(view.terrainSeed));
+      }
       this.dynamic.forEach(function (o) { o.destroy(); });
       this.dynamic = []; this.blinkers = [];
+      (view.zone || []).forEach(function (z) { self.addHighlight("zone", z.r, z.c, 1); });
 
       view.targets.forEach(function (t) { self.addHighlight(t.capture ? "capture" : "move", t.r, t.c, 6); });
       if (view.selected) this.addHighlight("select", view.selected.r, view.selected.c, 5);
@@ -274,7 +296,8 @@
         if (!rec) {
           rec = self.makeRec(p);
           rec.sig = sig;
-          if (!freshGame && view.phase !== "select1" && view.phase !== "select2") self.materialize(rec, p);
+          if (!freshGame && view.phase.indexOf("select") !== 0 && view.phase.indexOf("deploy") !== 0) self.materialize(rec, p);
+          else if (view.phase.indexOf("deploy") === 0) self.landPuff(p);
         } else if (rec.sig !== sig) {
           var gained = sig.length > rec.sig.length;
           rec.sig = sig;
@@ -289,7 +312,7 @@
       Object.keys(this.pawnRecs).forEach(function (id) {
         if (seen[id]) return;
         var rec = self.pawnRecs[id];
-        if (!freshGame) self.shatter(rec);
+        if (!freshGame && view.phase.indexOf("deploy") !== 0 && view.phase.indexOf("select") !== 0 && view.phase !== "handover") self.shatter(rec);
         self.destroyRec(rec);
         delete self.pawnRecs[id];
       });
@@ -299,7 +322,8 @@
       var shadow = this.add.image(2, 13, "shadow").setOrigin(0, 0);
       var img = this.add.image(0, 0, "pawn-" + p.player + "-" + p.shape).setOrigin(0, 0);
       var container = this.add.container(cx(p.c), cy(p.r), [shadow, img]).setDepth(4);
-      var rec = { container: container, img: img, shadow: shadow, r: p.r, c: p.c, hopping: false, chipObjs: [], player: p.player, shape: p.shape, sig: "" };
+      var rec = { container: container, img: img, shadow: shadow, r: p.r, c: p.c, hopping: false, chipObjs: [], player: p.player, shape: p.shape, sig: "",
+                  bobPhase: parseInt(String(p.id).replace(/\D/g, ""), 10) % 2 || 0 };
       this.pawnRecs[p.id] = rec;
       return rec;
     }
@@ -320,6 +344,11 @@
         var s = self.add.image(11, 10, "mk-suspicion").setOrigin(0, 0);
         rec.container.add(s); rec.chipObjs.push(s);
       }
+    }
+
+    /* Pose pendant le déploiement : petit nuage de poussière en 4 pas. */
+    landPuff(p) {
+      for (var i = 0; i < 6; i++) this.pixelParticle(cx(p.c) + 4 + i, cy(p.r) + 14, (i - 2.5) > 0 ? 3 : -3, -1 - (i % 2), "#e8dcc0", 1, 4, 60);
     }
 
     /* Saut image par image : 4 pas de 70 ms, arc au milieu, positions entières. */

@@ -35,7 +35,7 @@
     <div id="victory" class="victory" style="display:none"></div>
 
     <div class="board-wrap">
-      <div id="phaser-board" role="img" aria-label="Plateau de jeu 8 par 8, coordonnées A à H et 1 à 8"></div>
+      <div id="phaser-board" role="img" aria-label="Plateau de jeu 8 par 8 en terrain fantastique, coordonnées A à H et 1 à 8"></div>
       <div id="board-banner" class="board-banner" aria-live="polite"></div>
     </div>
 
@@ -43,6 +43,8 @@
       <button id="end-turn" type="button" class="btn-ember" style="display:none">TERMINER MON TOUR</button>
       <button id="new-game" type="button">NOUVELLE PARTIE</button>
     </div>
+
+    <div id="deploy-panel" class="deploy-panel px-box" style="display:none"></div>
 
     <p class="reveal-zone">
       <button id="reveal" type="button">MAINTENIR : MA PIÈCE ESSENTIELLE</button>
@@ -64,13 +66,14 @@
     <h2 class="section-title">Comment jouer</h2>
     <div id="help-content">
     <ol>
-      <li><strong>Pièce essentielle secrète :</strong> avant la partie, chaque joueur choisit en secret un de ses pions (écran de passation entre les deux choix). Si l'adversaire capture ta pièce essentielle, tu perds immédiatement — et inversement !</li>
+      <li><strong>Placement secret :</strong> avant la partie, chaque joueur pose ses 12 pions où il veut dans ses 3 rangées (le Joueur 1 en bas, le Joueur 2 en haut), sans voir ceux de l'adversaire. Chaque partie démarre donc différemment.</li>
+      <li><strong>Pièce essentielle secrète :</strong> une fois ses pions posés, chaque joueur choisit en secret l'un d'eux (écran de passation entre les deux joueurs). Si l'adversaire capture ta pièce essentielle, tu perds immédiatement — et inversement !</li>
       <li><strong>But :</strong> capturer la pièce essentielle adverse, ou tous ses pions, ou le laisser sans coup légal.</li>
-      <li><strong>Déplacements :</strong> 1 case dans les <strong>8 directions</strong>, vers une case vide — les pions ne sont pas limités aux cases foncées après le départ. <strong>Capture par saut</strong> (8 directions) : par-dessus un pion adverse adjacent, case derrière libre. Capture <strong>non obligatoire</strong>, <strong>une seule</strong> par tour. Pas de promotion/Dame en v0.2.</li>
-      <li><strong>Sur le plateau :</strong> gemme verte = déplacement possible, crochets rouges = capture possible, cadre doré = pion sélectionné, pointillés dorés = cible de carte choisie.</li>
+      <li><strong>Déplacements :</strong> 1 case dans les <strong>8 directions</strong>, vers une case vide. <strong>Capture par saut</strong> (8 directions) : par-dessus un pion adverse adjacent, case derrière libre. Capture <strong>non obligatoire</strong>, <strong>une seule</strong> par tour. Pas de promotion/Dame en v0.2.</li>
+      <li><strong>Sur le plateau :</strong> pointillés dorés en début de partie = zone de placement, gemme verte = déplacement possible, crochets rouges = capture possible, cadre doré = pion sélectionné, pointillés dorés = cible de carte choisie.</li>
       <li><strong>Structure d'un tour :</strong> pioche si ta main a moins de 4 cartes → déplacement principal → <strong>au maximum 1 carte</strong>, jouée après le déplacement. Main de départ : 3, maximum 4. Seule ta main est visible ; celle de l'adversaire est face cachée.</li>
       <li><strong>Les cartes</strong> (30, en 6 familles) : clique une carte pour lire sa cible, ses conditions, son coût, son risque et sa durée, choisis les options éventuelles, clique tes cibles sur le plateau, puis CONFIRMER.</li>
-      <li><strong>Les formes</strong> des pions sont cosmétiques : cercle, carré, triangle, losange, hexagone, étoile.</li>
+      <li><strong>Les personnages</strong> (Mage, Chevalier, Archère, Golem, Hibou, Esprit) sont cosmétiques : tous se déplacent de la même façon. Le terrain du plateau est purement décoratif.</li>
       <li><strong>Inspection :</strong> clique un pion adverse (sans pion sélectionné) pour voir ses propriétés — sauf s'il est voilé.</li>
     </ol>
     <p class="note">Puces d'état sur les pions : B bouclier, R rempart, E (or) Égide, E (rouge) Entrave, A ailes, V voilé, S silence, L lié, G gelé/immobilisé, D double, M marque de passage. Certaines règles de la v0.2 sont des <strong>choix provisoires</strong> documentés dans le README.</p>

@@ -41,23 +41,43 @@ Object.keys(art.PIXEL_FONT).forEach(function (k) {
   var g = art.PIXEL_FONT[k];
   check(g.length === 5 && g.every(function (r) { return r.length === 3; }), "glyphe " + k + " pas en 3x5");
 });
-["light", "dark"].forEach(function (kind) {
-  var t = art.boardTile(kind, 3, 4);
+Object.keys(art.TERRAIN).forEach(function (kind) {
+  var t = art.terrainTile(kind, 3, 4);
   check(t.length === 16 && t.every(function (r) { return r.length === 16 && r.every(Boolean); }), "dalle " + kind + " incomplète");
 });
+var biomes = {};
+for (var tr = 0; tr < 8; tr++) for (var tc = 0; tc < 8; tc++) {
+  var k = art.terrainAt(tr, tc);
+  biomes[k] = (biomes[k] || 0) + 1;
+  check(k === art.terrainAt(7 - tr, 7 - tc), "terrain non symétrique en " + tr + "," + tc);
+}
+check(Object.keys(biomes).length >= 4, "terrain trop uniforme : " + JSON.stringify(biomes));
+var silhouettes = {};
 eng.SHAPES.forEach(function (sh) {
-  [1, 2].forEach(function (pl) {
-    var p = art.pawnPixels(eng.SPRITE_MAPS[sh], pl);
-    check(p.length === 16, "pion " + sh);
+  var m = art.PIECE_SPRITES[sh];
+  check(!!m, "sprite manquant pour la pièce " + sh);
+  if (!m) return;
+  check(m.length === 16, "pièce " + sh + " : " + m.length + " lignes");
+  m.forEach(function (row, i) {
+    check(row.length === 16, "pièce " + sh + " ligne " + i + " : " + row.length + " colonnes");
+    for (var c = 0; c < row.length; c++) {
+      var ch = row[c];
+      check(ch === "." || "TtD".indexOf(ch) >= 0 || art.PIECE_COLORS[ch], "pièce " + sh + " : couleur inconnue '" + ch + "'");
+      if (i === 0 || i === 15 || c === 0 || c === 15) check(ch === ".", "pièce " + sh + " : pixel sur la marge (" + i + "," + c + ")");
+    }
   });
+  var sil = m.map(function (r) { return r.replace(/[^.]/g, "#"); }).join("");
+  check(!silhouettes[sil], "silhouettes identiques : " + sh + " / " + silhouettes[sil]);
+  silhouettes[sil] = sh;
+  [1, 2].forEach(function (pl) { check(art.pieceSprite(sh, pl).length === 16, "pièce " + sh + " J" + pl); });
 });
 
 var di = process.argv.indexOf("--dump");
 if (di > 0) {
   var dump = { subjects: {}, pawns: {}, tiles: [], ui: {} };
   eng.CARD_IDS.forEach(function (id) { dump.subjects[id] = art.subjectPixels(id, eng.CARDS[id].teinte); });
-  eng.SHAPES.forEach(function (sh) { dump.pawns[sh] = [art.pawnPixels(eng.SPRITE_MAPS[sh], 1), art.pawnPixels(eng.SPRITE_MAPS[sh], 2)]; });
-  for (var r = 0; r < 2; r++) for (var c = 0; c < 8; c++) dump.tiles.push(art.boardTile((r + c) % 2 ? "dark" : "light", r, c));
+  eng.SHAPES.forEach(function (sh) { dump.pawns[sh] = [art.pieceSprite(sh, 1), art.pieceSprite(sh, 2)]; });
+  for (var r = 0; r < 8; r++) for (var c = 0; c < 8; c++) dump.tiles.push(art.terrainTile(art.terrainAt(r, c), r, c));
   require("fs").writeFileSync(process.argv[di + 1], JSON.stringify(dump));
 }
 console.log(fails ? fails + " échec(s)" : "art-check : OK (" + eng.CARD_IDS.length + " sujets, " + Object.keys(art.UI_SPRITES).length + " sprites d'interface)");

@@ -4,74 +4,87 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Wizard Dame — prototype v0.2</title>
+<link rel="preload" href="vendor/fonts/press-start-2p-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="vendor/fonts/silkscreen-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="vendor/fonts/vt323-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header>
-  <h1 class="pixel-title">WIZARD DAME</h1>
-  <p class="tagline">Stratégie au tour par tour : des dames, des cartes, des fusions, du bluff — et une pièce essentielle à protéger.</p>
-  <p class="tagline"><strong>VERSION PROTOTYPE</strong> — en cours de développement : certaines cartes sont simplifiées ou provisoires (voir le README du projet).</p>
-  <p><button id="sound-toggle" type="button">Son : OUI</button></p>
+<header class="topbar">
+  <div class="brand">
+    <img class="brand-hat" data-sprite="hat" alt="">
+    <span class="brand-name">WIZARD DAME</span>
+  </div>
+  <div class="topbar-actions">
+    <button id="menu-btn" type="button">MENU</button>
+    <button id="sound-toggle" class="sound-toggle" type="button">SON</button>
+  </div>
 </header>
 
 <div id="overlay" class="overlay" style="display:none"></div>
 
 <main>
-  <section class="panel game-panel">
+  <section class="panel game-panel px-box">
     <div class="status">
-      <p id="turn" class="turn p1"></p>
-      <p id="phase-hint" class="score"></p>
-      <p id="score" class="score"></p>
+      <div class="turn-bar"><img id="turn-pawn" class="turn-pawn" alt=""><p id="turn" class="turn p1"></p></div>
+      <div id="steps" class="steps"></div>
+      <p id="phase-hint" class="phase-hint"></p>
+      <div id="counters" class="counters"></div>
     </div>
 
     <div id="victory" class="victory" style="display:none"></div>
 
     <div class="board-wrap">
-      <div id="phaser-board" role="img" aria-label="Plateau de jeu 8 par 8 (rendu Phaser)"></div>
+      <div id="phaser-board" role="img" aria-label="Plateau de jeu 8 par 8, coordonnées A à H et 1 à 8"></div>
+      <div id="board-banner" class="board-banner" aria-live="polite"></div>
     </div>
 
     <div class="actions">
-      <button id="end-turn" type="button" style="display:none">Terminer mon tour</button>
-      <button id="new-game" type="button">Nouvelle partie</button>
+      <button id="end-turn" type="button" class="btn-ember" style="display:none">TERMINER MON TOUR</button>
+      <button id="new-game" type="button">NOUVELLE PARTIE</button>
     </div>
 
     <p class="reveal-zone">
-      <button id="reveal" type="button">Maintenir pour voir TA pièce essentielle (secret !)</button>
+      <button id="reveal" type="button">MAINTENIR : MA PIÈCE ESSENTIELLE</button>
       <span id="reveal-text" class="reveal-text"></span>
     </p>
 
     <div id="opp-hand" class="opp-hand"></div>
 
-    <h2>Ta main de cartes <small>(1 carte max par tour, APRÈS ton déplacement)</small></h2>
+    <h2 class="section-title">Ta main <small>1 carte max par tour, APRÈS ton déplacement</small></h2>
     <div id="hand" class="hand"></div>
 
     <div id="card-detail" class="card-detail"></div>
 
-    <h2>Ce qui vient de se passer</h2>
+    <h2 class="section-title">Journal</h2>
     <ul id="log" class="log"></ul>
   </section>
 
-  <section class="panel help">
-    <h2>Comment jouer (v0.2)</h2>
+  <section class="panel help px-box">
+    <h2 class="section-title">Comment jouer</h2>
+    <div id="help-content">
     <ol>
       <li><strong>Pièce essentielle secrète :</strong> avant la partie, chaque joueur choisit en secret un de ses pions (écran de passation entre les deux choix). Si l'adversaire capture ta pièce essentielle, tu perds immédiatement — et inversement !</li>
       <li><strong>But :</strong> capturer la pièce essentielle adverse, ou tous ses pions, ou le laisser sans coup légal.</li>
       <li><strong>Déplacements :</strong> 1 case dans les <strong>8 directions</strong>, vers une case vide — les pions ne sont pas limités aux cases foncées après le départ. <strong>Capture par saut</strong> (8 directions) : par-dessus un pion adverse adjacent, case derrière libre. Capture <strong>non obligatoire</strong>, <strong>une seule</strong> par tour. Pas de promotion/Dame en v0.2.</li>
+      <li><strong>Sur le plateau :</strong> gemme verte = déplacement possible, crochets rouges = capture possible, cadre doré = pion sélectionné, pointillés dorés = cible de carte choisie.</li>
       <li><strong>Structure d'un tour :</strong> pioche si ta main a moins de 4 cartes → déplacement principal → <strong>au maximum 1 carte</strong>, jouée après le déplacement. Main de départ : 3, maximum 4. Seule ta main est visible ; celle de l'adversaire est face cachée.</li>
-      <li><strong>Les cartes</strong> (30, en 6 familles) portent chacune un effet qu'on applique <em>sur un pion</em> ou une case : clique une carte pour lire sa cible, ses conditions, son coût, son risque et sa durée, choisis les options éventuelles, clique tes cibles sur le plateau, puis CONFIRMER.</li>
-      <li><strong>Les formes</strong> des pions sont cosmétiques (pixel art) : cercle, carré, triangle, losange, hexagone, étoile.</li>
+      <li><strong>Les cartes</strong> (30, en 6 familles) : clique une carte pour lire sa cible, ses conditions, son coût, son risque et sa durée, choisis les options éventuelles, clique tes cibles sur le plateau, puis CONFIRMER.</li>
+      <li><strong>Les formes</strong> des pions sont cosmétiques : cercle, carré, triangle, losange, hexagone, étoile.</li>
       <li><strong>Inspection :</strong> clique un pion adverse (sans pion sélectionné) pour voir ses propriétés — sauf s'il est voilé.</li>
     </ol>
-    <p class="note">Pixel art intégral, sons 8-bit générés en code (aucun fichier audio). Certaines règles de la v0.2 sont des <strong>choix provisoires documentés</strong> dans le README (propriétés des pions et Fusion, en attendant la section d'Ekoue).</p>
+    <p class="note">Puces d'état sur les pions : B bouclier, R rempart, E (or) Égide, E (rouge) Entrave, A ailes, V voilé, S silence, L lié, G gelé/immobilisé, D double, M marque de passage. Certaines règles de la v0.2 sont des <strong>choix provisoires</strong> documentés dans le README.</p>
+    </div>
   </section>
 </main>
 
 <footer>
-  <p>Wizard Dame — un projet d'Ekoue. Plateau rendu par Phaser 3.60.0 (fichier local vendorisé, aucun CDN, aucun build) : sers simplement ce dossier en HTTP dans un navigateur.</p>
+  <p>Wizard Dame — un projet d'Ekoue. Pixel art généré en code, sons 8-bit Web Audio, Phaser 3.60.0 et polices pixel (Press Start 2P, Silkscreen, VT323 — licence OFL) vendorisés : aucun CDN, aucun build.</p>
 </footer>
 
 <script src="vendor/phaser.min.js"></script>
 <script src="engine.js"></script>
+<script src="art.js"></script>
 <script src="phaser-main.js"></script>
 <script src="ui-dom.js"></script>
 </body>

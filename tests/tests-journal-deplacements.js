@@ -32,7 +32,7 @@ function countInLog(g, s) { return g.log.filter(e => e === s).length; }
   const before = g.log.length;
   const res = found ? M.applyMove(g, found.r, found.c, found.move) : { ok: false };
   T("J2 déplacement appliqué", res.ok === true, res.error || "");
-  const expected = "Joueur 1 déplace un pion " + found.pawn.shape + " de " + name(found.r, found.c) + " vers " + name(found.move.toR, found.move.toC) + ".";
+  const expected = "Joueur 1 déplace un pion " + M.pieceName(found.pawn.shape) + " de " + name(found.r, found.c) + " vers " + name(found.move.toR, found.move.toC) + ".";
   const newEntries = g.log.slice(before);
   T("J3 entrée de déplacement exacte ajoutée", newEntries.filter(e => e === expected).length === 1, JSON.stringify(newEntries));
   const res2 = M.endTurn(g);
@@ -57,7 +57,7 @@ function countInLog(g, s) { return g.log.filter(e => e === s).length; }
   const before = g.log.length;
   const res = cap ? M.applyMove(g, 4, 4, cap) : { ok: false };
   const newEntries = g.log.slice(before);
-  T("J8 capture appliquée et journalisée", res.ok === true && newEntries.some(e => e.indexOf("capture un pion " + v.shape) !== -1), JSON.stringify(newEntries));
+  T("J8 capture appliquée et journalisée", res.ok === true && newEntries.some(e => e.indexOf("capture un pion " + M.pieceName(v.shape)) !== -1), JSON.stringify(newEntries));
   T("J9 aucune entrée « déplace » pour une capture", !newEntries.some(e => e.indexOf("déplace un pion") !== -1), JSON.stringify(newEntries));
   T("J10 attaquant bien arrivé en (4,6)", g.board[4][6] === a && g.captured[1] === 1);
 }

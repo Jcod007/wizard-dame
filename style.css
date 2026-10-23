@@ -245,3 +245,62 @@ footer { text-align: center; color: var(--muted); padding: 0 1rem 1.4rem; font-s
 .reveal-text { color: var(--gold); font-weight: bold; font-size: .9rem; }
 .pat-rune, .pat-ring { border-radius: 0; }
 .particle { z-index: 5; }
+
+/* ===== Migration Phaser + corrections Designer Cartes (rapport 05) =====
+   Bloc volontairement EN FIN DE FICHIER : à spécificité égale, la règle la
+   plus tardive gagne (c'est le correctif C10 pour la media query mobile). */
+
+/* Conteneur du canvas Phaser : mêmes cadre et ombres que l'ancien plateau DOM. */
+#phaser-board {
+  width: 100%; aspect-ratio: 1 / 1;
+  border: 4px solid var(--ink);
+  box-shadow: inset 0 0 0 4px #382a5e, 0 4px 0 var(--ink);
+  background: var(--ink);
+  touch-action: manipulation;
+}
+#phaser-board canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; margin: 0 auto; }
+
+/* C5 — le badge numéroté doit DÉBORDER de la carte (référence d'Ekoue) :
+   seul le visuel de scène rogne, plus la carte entière. */
+.tc { overflow: visible; }
+.tc-scene { overflow: hidden; }
+
+/* C2 — en-tête et pied codés par FAMILLE : les rampes de SCENE_PALETTES
+   remontées sur le cadre ; la famille se lit sans lire le texte. */
+.tc[data-fam="mouvement"] .tc-head { background: #2c5a34; }
+.tc[data-fam="mouvement"] .tc-foot { background: #15251a; color: #8fce6e; }
+.tc[data-fam="defense"] .tc-head { background: #2b3a66; }
+.tc[data-fam="defense"] .tc-foot { background: #12182e; color: #9db4d8; }
+.tc[data-fam="fusion"] .tc-head { background: #4d1a5c; }
+.tc[data-fam="fusion"] .tc-foot { background: #1c0824; color: #e879f9; }
+.tc[data-fam="piege"] .tc-head { background: #1f3a28; }
+.tc[data-fam="piege"] .tc-foot { background: #0a120c; color: #facc15; }
+.tc[data-fam="perturbation"] .tc-head { background: #1a3050; }
+.tc[data-fam="perturbation"] .tc-foot { background: #0a0f18; color: #7dd3fc; }
+.tc[data-fam="retour"] .tc-head { background: #3a1c40; }
+.tc[data-fam="retour"] .tc-foot { background: #120814; color: #fda4af; }
+.tc-foot { text-transform: none; } /* libellés accentués affichés tels quels (C6) */
+
+/* C11 — bandeau méta « cible • durée » sous la scène. */
+.tc-meta {
+  display: block; background: #d9cba6; color: #2c2013;
+  font-size: .68rem; font-weight: bold; line-height: 1.25;
+  padding: .25rem .5rem; border-bottom: 2px solid var(--ink);
+}
+
+/* C9 — noms longs : police réduite, en-têtes alignés dans une rangée. */
+.tc-name-long { font-size: .78rem; letter-spacing: 0; }
+
+/* C8 — clamp du texte en main (la pleine version reste intégrale). */
+.hand .tc-text {
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+}
+.tc-big .tc-text { -webkit-line-clamp: unset; }
+
+/* C10 — media query mobile APRÈS la redéfinition v0.2 de .hand (elle était
+   écrasée) ; main mobile en grille à colonnes >= 168 px (spec §3.7 du rapport 05). */
+@media (max-width: 560px) {
+  .pixel-title { font-size: 1.45rem; }
+  .hand { grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); }
+  .game-panel, .help { padding: .8rem; }
+}

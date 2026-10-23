@@ -27,8 +27,7 @@
     <div id="victory" class="victory" style="display:none"></div>
 
     <div class="board-wrap">
-      <div id="board" class="board" role="grid" aria-label="Plateau de jeu 8 par 8"></div>
-      <div id="fx" class="fx" aria-hidden="true"></div>
+      <div id="phaser-board" role="img" aria-label="Plateau de jeu 8 par 8 (rendu Phaser)"></div>
     </div>
 
     <div class="actions">
@@ -68,9 +67,12 @@
 </main>
 
 <footer>
-  <p>Wizard Dame — un projet d'Ekoue. Aucune dépendance : ouvre simplement ce fichier dans un navigateur.</p>
+  <p>Wizard Dame — un projet d'Ekoue. Plateau rendu par Phaser 3.60.0 (fichier local vendorisé, aucun CDN, aucun build) : sers simplement ce dossier en HTTP dans un navigateur.</p>
 </footer>
 
-<script src="game.js"></script>
+<script src="vendor/phaser.min.js"></script>
+<script src="engine.js"></script>
+<script src="phaser-main.js"></script>
+<script src="ui-dom.js"></script>
 </body>
 </html>

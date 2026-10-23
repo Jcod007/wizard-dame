@@ -1,0 +1,100 @@
+{
+ "frame": 64,
+ "feet": [
+  32,
+  44
+ ],
+ "portrait": 40,
+ "rows": {
+  "idle": 0,
+  "move": 1,
+  "hurt": 2
+ },
+ "idleFrames": 4,
+ "moveFrames": 4,
+ "hurtFrame": 0,
+ "deadFrames": [
+  1,
+  2
+ ],
+ "characters": {
+  "mage": {
+   "kind": "humain",
+   "portraits": {
+    "1": [
+     40,
+     40
+    ],
+    "2": [
+     40,
+     40
+    ]
+   }
+  },
+  "chevalier": {
+   "kind": "humain",
+   "portraits": {
+    "1": [
+     40,
+     40
+    ],
+    "2": [
+     40,
+     40
+    ]
+   }
+  },
+  "eclaireur": {
+   "kind": "humain",
+   "portraits": {
+    "1": [
+     40,
+     40
+    ],
+    "2": [
+     40,
+     40
+    ]
+   }
+  },
+  "golem": {
+   "kind": "creature",
+   "portraits": {
+    "1": [
+     40,
+     40
+    ],
+    "2": [
+     40,
+     40
+    ]
+   }
+  },
+  "hibou": {
+   "kind": "creature",
+   "portraits": {
+    "1": [
+     40,
+     40
+    ],
+    "2": [
+     40,
+     40
+    ]
+   }
+  },
+  "esprit": {
+   "kind": "creature",
+   "portraits": {
+    "1": [
+     40,
+     40
+    ],
+    "2": [
+     40,
+     40
+    ]
+   }
+  }
+ }
+}

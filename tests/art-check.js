@@ -52,31 +52,29 @@ for (var tr = 0; tr < 8; tr++) for (var tc = 0; tc < 8; tc++) {
   check(k === art.terrainAt(7 - tr, 7 - tc), "terrain non symétrique en " + tr + "," + tc);
 }
 check(Object.keys(biomes).length >= 4, "terrain trop uniforme : " + JSON.stringify(biomes));
-var silhouettes = {};
+// Personnages : planches PNG générées (assets/characters/), décrites par characters.json.
+var fs = require("fs");
+var charDir = path.join(__dirname, "..", "assets", "characters");
+var manifest = JSON.parse(fs.readFileSync(path.join(charDir, "characters.json"), "utf8"));
+function pngSize(file) { var b = fs.readFileSync(file); return [b.readUInt32BE(16), b.readUInt32BE(20)]; }
+check(eng.SHAPES.length === 6 && new Set(eng.SHAPES).size === 6, "6 personnages distincts attendus");
 eng.SHAPES.forEach(function (sh) {
-  var m = art.PIECE_SPRITES[sh];
-  check(!!m, "sprite manquant pour la pièce " + sh);
-  if (!m) return;
-  check(m.length === 16, "pièce " + sh + " : " + m.length + " lignes");
-  m.forEach(function (row, i) {
-    check(row.length === 16, "pièce " + sh + " ligne " + i + " : " + row.length + " colonnes");
-    for (var c = 0; c < row.length; c++) {
-      var ch = row[c];
-      check(ch === "." || "TtD".indexOf(ch) >= 0 || art.PIECE_COLORS[ch], "pièce " + sh + " : couleur inconnue '" + ch + "'");
-      if (i === 0 || i === 15 || c === 0 || c === 15) check(ch === ".", "pièce " + sh + " : pixel sur la marge (" + i + "," + c + ")");
-    }
+  check(!!manifest.characters[sh], "personnage absent de characters.json : " + sh);
+  check(!!eng.PIECE_NAMES[sh], "nom d'affichage manquant : " + sh);
+  [1, 2].forEach(function (pl) {
+    var sheet = path.join(charDir, sh + "-" + pl + ".png"), por = path.join(charDir, "portrait-" + sh + "-" + pl + ".png");
+    check(fs.existsSync(sheet), "planche manquante : " + sh + "-" + pl);
+    check(fs.existsSync(por), "portrait manquant : " + sh + "-" + pl);
+    if (fs.existsSync(sheet)) { var s = pngSize(sheet); check(s[0] === 4 * manifest.frame && s[1] === 3 * manifest.frame, "planche " + sh + "-" + pl + " : " + s.join("x")); }
   });
-  var sil = m.map(function (r) { return r.replace(/[^.]/g, "#"); }).join("");
-  check(!silhouettes[sil], "silhouettes identiques : " + sh + " / " + silhouettes[sil]);
-  silhouettes[sil] = sh;
-  [1, 2].forEach(function (pl) { check(art.pieceSprite(sh, pl).length === 16, "pièce " + sh + " J" + pl); });
 });
+check(fs.existsSync(path.join(charDir, "CREDITS.md")), "crédits des personnages manquants");
+eng.CARD_IDS.forEach(function (id) { check(!!art.RARITY_STYLES[art.cardRarity(id)], "rareté inconnue pour " + id); });
 
 var di = process.argv.indexOf("--dump");
 if (di > 0) {
   var dump = { subjects: {}, pawns: {}, tiles: [], ui: {} };
   eng.CARD_IDS.forEach(function (id) { dump.subjects[id] = art.subjectPixels(id, eng.CARDS[id].teinte); });
-  eng.SHAPES.forEach(function (sh) { dump.pawns[sh] = [art.pieceSprite(sh, 1), art.pieceSprite(sh, 2)]; });
   for (var r = 0; r < 8; r++) for (var c = 0; c < 8; c++) dump.tiles.push(art.terrainTile(art.terrainAt(r, c), r, c));
   require("fs").writeFileSync(process.argv[di + 1], JSON.stringify(dump));
 }

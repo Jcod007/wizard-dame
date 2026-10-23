@@ -28,10 +28,11 @@
 /* ================= Pièces : personnages (décision d'Ekoue, 2026-10-23) =================
  * Les anciennes formes géométriques (cosmétiques) sont remplacées par 6 personnages
  * du thème « ordre des mages ». Toujours cosmétiques : aucune règle n'en dépend.
- * Les sprites vivent dans art.js (PIECE_SPRITES). */
+ * Les planches animées vivent dans assets/characters/ (tools/build-characters.py) :
+ * humains du kit Mana Seed, créatures du Basic Asset Pack. */
 
-var SHAPES = ["mage", "chevalier", "archere", "golem", "hibou", "esprit"];
-var PIECE_NAMES = { mage: "Mage", chevalier: "Chevalier", archere: "Archère", golem: "Golem", hibou: "Hibou", esprit: "Esprit" };
+var SHAPES = ["mage", "chevalier", "eclaireur", "golem", "hibou", "esprit"];
+var PIECE_NAMES = { mage: "Mage", chevalier: "Chevalier", eclaireur: "Éclaireur", golem: "Golem", hibou: "Hibou", esprit: "Esprit" };
 function pieceName(shape) { return PIECE_NAMES[shape] || shape; }
 
 var PLAYER_PALETTES = {

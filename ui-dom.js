@@ -37,7 +37,8 @@ var _urlCache = {};
 function cached(key, make) { if (!_urlCache[key]) _urlCache[key] = make(); return _urlCache[key]; }
 
 function spriteURL(name) { return cached("ui-" + name, function () { return gridURL(mapGrid(UI_SPRITES[name])); }); }
-function pawnURL(player, shape) { return cached("pawn-" + player + shape, function () { return gridURL(pieceSprite(shape, player)); }); }
+/* Vignette 40x40 d'un personnage (assets/characters/, de face, couleurs du camp). */
+function pawnURL(player, shape) { return "assets/characters/portrait-" + shape + "-" + player + ".png"; }
 
 /* Icône de famille (pied de carte) : glyphe 12x12 de la famille, contouré. */
 function cardSpriteURL(id) {
@@ -216,6 +217,8 @@ if (typeof document !== "undefined") {
     var vicEl = document.getElementById("victory");
     var bannerEl = document.getElementById("board-banner");
     var deployEl = document.getElementById("deploy-panel");
+    var deckEl = document.getElementById("deck-pile");
+    var discardEl = document.getElementById("discard-pile");
 
     var gameSeq = 0;
     var gameSeed = Date.now() % 100000;
@@ -223,7 +226,8 @@ if (typeof document !== "undefined") {
     gameSeq++;
     function freshUi(screen) {
       return { selected: null, moves: [], pendingCard: null, pendingTargets: [], pendingChoices: {},
-               lastFromTo: null, inspectId: null, screen: screen, victorySeen: false, started: screen === null, reserveSel: 0 };
+               lastFromTo: null, inspectId: null, screen: screen, victorySeen: false, started: screen === null, reserveSel: 0,
+               lastHands: { 1: g.hands[1].slice(), 2: g.hands[2].slice() } }; // pour animer chaque nouvelle carte piochée
     }
     var ui = freshUi("menu");
 
@@ -401,8 +405,8 @@ if (typeof document !== "undefined") {
       countersEl.innerHTML =
         '<span class="ctr" title="Captures">' + img(spriteURL("swords"), "ctr-icon", "Captures") +
           '<b class="p1">' + g.captured[1] + '</b>·<b class="p2">' + g.captured[2] + "</b></span>" +
-        '<span class="ctr" title="Pions en jeu">' + img(pawnURL(1, "chevalier"), "ctr-icon", "") + "<b>" + countPawns(g, 1) + "</b>" +
-          img(pawnURL(2, "chevalier"), "ctr-icon", "") + "<b>" + countPawns(g, 2) + "</b></span>" +
+        '<span class="ctr" title="Personnages en jeu"><span class="team-dot p1"></span><b>' + countPawns(g, 1) + "</b>" +
+          '<span class="team-dot p2"></span><b>' + countPawns(g, 2) + "</b></span>" +
         '<span class="ctr" title="Pioche du joueur courant">' + img(spriteURL("deck"), "ctr-icon", "Pioche") + "<b>" + g.decks[g.current].length + "</b></span>" +
         '<span class="ctr" title="Défausse du joueur courant">' + img(spriteURL("discard"), "ctr-icon", "Défausse") + "<b>" + g.discards[g.current].length + "</b></span>";
 
@@ -433,32 +437,72 @@ if (typeof document !== "undefined") {
       var duree = def.duree.length > 22 ? def.duree.slice(0, 22).trim() + "…" : def.duree;
       return '<span class="tc-head"><span class="tc-badge">' + cardNumber(id) + '</span><span class="' +
         (def.nom.length > 14 ? "tc-name tc-name-long" : "tc-name") + '">' + esc(def.nom) + "</span></span>" +
-        '<span class="tc-window"><img class="tc-scene" src="' + cardSceneURL(id) + '" alt=""></span>' +
+        '<span class="tc-window"><img class="tc-scene" src="' + cardSceneURL(id) + '" alt="">' +
+        (cardRarity(id) === "legendaire" ? '<span class="tc-holo"></span>' : "") + "</span>" +
         '<span class="tc-meta">' + esc(TARGET_SHORT[def.cible] || "—") + " • " + esc(duree) + "</span>" +
         '<span class="tc-text">' + esc(txt) + "</span>" +
         '<span class="tc-foot"><img class="tc-fam-icon" src="' + cardSpriteURL(id) + '" alt=""> ' +
-        esc(FAMILY_LABELS[def.famille] || def.famille) + (def.bannie ? " · BANNIE" : "") + (def.unique ? " · UNIQUE" : "") + "</span>";
+        esc(FAMILY_LABELS[def.famille] || def.famille) + (def.bannie ? " · BANNIE" : "") + (def.unique ? " · UNIQUE" : "") +
+        '<span class="tc-gem" title="' + RARITY_STYLES[cardRarity(id)].label + '"></span></span>';
     }
 
+    /* Zone de jeu des cartes (design « table de duel ») : défausse à gauche,
+       main en éventail au centre, pioche à droite. Une carte nouvellement
+       piochée vole depuis la pioche et se retourne, image par image. */
     function renderHands() {
       var opp = g.current === 1 ? 2 : 1;
       oppHandEl.innerHTML = "<span>Main du Joueur " + opp + " (cachée) :</span> " +
         g.hands[opp].map(function () { return img(spriteURL("cardBack"), "card-back", "carte cachée"); }).join("");
+      var inGame = g.phase === "move" || g.phase === "card";
+      var me = g.current, deckN = g.decks[me].length, disc = g.discards[me];
+      deckEl.innerHTML = '<span class="pile-label">PIOCHE</span><span class="pile-stack">' +
+        (deckN ? img(spriteURL("cardBack"), "pile-card back3", "") + img(spriteURL("cardBack"), "pile-card back2", "") + img(spriteURL("cardBack"), "pile-card", "Pioche") : '<span class="pile-empty"></span>') +
+        '<span class="pile-count">' + deckN + "</span></span>";
+      discardEl.innerHTML = '<span class="pile-label">DÉFAUSSE</span><span class="pile-stack">' +
+        (disc.length ? '<img class="pile-card pile-top" src="' + cardSceneURL(disc[disc.length - 1]) + '" alt="Dernière carte défaussée : ' + esc(CARDS[disc[disc.length - 1]].nom) + '">' : '<span class="pile-empty"></span>') +
+        '<span class="pile-count">' + disc.length + "</span></span>";
       handEl.innerHTML = "";
-      if (g.phase !== "move" && g.phase !== "card") { handEl.innerHTML = '<p class="note">Les mains apparaîtront quand la partie commencera.</p>'; return; }
-      g.hands[g.current].forEach(function (id, i) {
+      if (!inGame) { handEl.innerHTML = '<p class="note">Les mains apparaîtront quand la partie commencera.</p>'; return; }
+      var hand = g.hands[me], prev = ui.lastHands[me], fresh = -1;
+      if (prev && hand.length === prev.length + 1 && prev.every(function (id, k) { return hand[k] === id; })) fresh = hand.length - 1;
+      ui.lastHands[me] = hand.slice();
+      var n = hand.length, mid = (n - 1) / 2;
+      hand.forEach(function (id, i) {
         var def = CARDS[id];
         var card = document.createElement("button");
         card.type = "button";
         var unplayable = g.phase !== "card" || g.cardPlayedThisTurn || cardPrecheck(g, id);
         card.className = "tc" + (ui.pendingCard === i ? " tc-selected" : "") + (unplayable ? " tc-off" : "");
         card.setAttribute("data-fam", def.famille);
+        card.setAttribute("data-rar", cardRarity(id));
+        card.style.setProperty("--lift", (Math.round(Math.abs(i - mid) * 8) - (ui.pendingCard === i ? 28 : 0)) + "px");
+        card.style.zIndex = ui.pendingCard === i ? 20 : i + 1;
         card.innerHTML = cardHTML(id, true);
         card.title = def.nom + " — " + def.description;
         card.addEventListener("click", function () { onCardClick(i); });
         handEl.appendChild(card);
+        if (i === fresh) flyFromDeck(card);
       });
-      if (!g.hands[g.current].length) handEl.innerHTML = '<p class="note">Main vide.</p>';
+      if (!n) handEl.innerHTML = '<p class="note">Main vide.</p>';
+    }
+
+    /* La carte piochée part de la pioche (translation calculée), le dos se
+       retire à mi-course : animation en steps(8), aucun lissage. */
+    function flyFromDeck(card) {
+      var stack = deckEl.querySelector(".pile-stack");
+      if (!stack) return;
+      var from = stack.getBoundingClientRect(), to = card.getBoundingClientRect();
+      card.style.setProperty("--dx", Math.round(from.left - to.left) + "px");
+      card.style.setProperty("--dy", Math.round(from.top - to.top) + "px");
+      card.classList.add("draw-in");
+      var back = document.createElement("img");
+      back.className = "flip-back"; back.src = spriteURL("cardBack"); back.alt = "";
+      card.appendChild(back);
+      var plus = document.createElement("span");
+      plus.className = "plus-one"; plus.textContent = "+1";
+      stack.appendChild(plus);
+      Sound.play("draw");
+      setTimeout(function () { card.classList.remove("draw-in"); if (back.parentNode) back.remove(); if (plus.parentNode) plus.remove(); }, 900);
     }
 
     function targetsNeeded(id) {
@@ -494,7 +538,7 @@ if (typeof document !== "undefined") {
       }
       var id = g.hands[g.current][ui.pendingCard];
       var def = CARDS[id];
-      var h = '<div class="detail-wrap"><div class="tc tc-big" data-fam="' + def.famille + '">' + cardHTML(id) + "</div><div class='detail-fields px-box'>" +
+      var h = '<div class="detail-wrap"><div class="tc tc-big" data-fam="' + def.famille + '" data-rar="' + cardRarity(id) + '">' + cardHTML(id) + "</div><div class='detail-fields px-box'>" +
         "<p><strong>Cible :</strong> " + esc(TARGET_SHORT[def.cible] || "—") + "</p>" +
         "<p><strong>Conditions :</strong> " + esc(def.conditions.replace(/^Cible : /, "")) + "</p>" +
         "<p><strong>Effet :</strong> " + esc(def.description) + "</p>" +

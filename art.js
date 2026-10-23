@@ -8,7 +8,7 @@
  *
  * Contenu :
  *   - ART_COLORS / CARD_SUBJECTS : 30 sujets originaux 16x16, un par carte (G1) ;
- *   - PIECE_SPRITES / pieceSprite() : 6 personnages 16x16, couleurs par camp ;
+ *   - PAWN_PALETTES : couleurs des camps ; CARD_RARITY / RARITY_STYLES : cadres des cartes ;
  *   - terrainAt() / terrainTile() : terrain fantastique du plateau (pas de damier) ;
  *   - PIXEL_FONT : police 3x5 pour les coordonnées et les puces d'état ;
  *   - UI_SPRITES : chapeau de sorcier, couronne, icônes de compteurs, dos de carte…
@@ -207,61 +207,30 @@ function outlinedPixels(map, colorFor) {
   return res;
 }
 
-/* ================= Pièces : personnages (thème « ordre des mages ») =================
-   Décision d'Ekoue (2026-10-23) : des personnages plutôt que des formes
-   géométriques. 6 sprites 16x16 dessinés à la main ; T/t/D = couleur du camp
-   (base / lumière / ombre), le reste est neutre (peau, métal, pierre, bois).
-   Silhouettes distinctes, lisibles à petite taille ; contour sombre automatique. */
+/* ================= Pièces : couleurs des camps =================
+   Les personnages eux-mêmes sont des planches PNG animées (assets/characters/,
+   générées par tools/build-characters.py depuis Mana Seed et le Basic Asset
+   Pack). Ici ne restent que les couleurs de camp : cercles au sol, éclats de
+   capture, interface. */
 var PAWN_PALETTES = {
-  1: { main: "#7c3aed", light: "#b79cff", dark: "#4c1d95", outline: "#1a0b38", gem: "#f5c542" },
-  2: { main: "#ea580c", light: "#ffb37a", dark: "#9a3412", outline: "#3b1104", gem: "#7dd3fc" }
-};
-var PIECE_COLORS = {
-  s: "#f2c79b", e: "#10101c", b: "#ece8f4", w: "#f3efff", y: "#f5c542", m: "#cbd5e1", M: "#7a8599",
-  n: "#8a5a2b", N: "#5a3618", g: "#8b8f9e", G: "#5e6272"
-};
-var PIECE_SPRITES = {
-  mage: [ // chapeau pointu, barbe, bâton à gemme
-    "................", "......tT....y...", ".....tTT...yyy..", ".....tTTD...y...",
-    "....tTTTD...n...", "..tTTTTTTTD.n...", "....seses...n...", "....sbbbs..sn...",
-    "...TbbbbbTTTn...", "...TTbbbTTD.n...", "...tTTbTTTD.n...", "...tTTTTTTD.n...",
-    "..tTTTTTTTTD.n..", "..tTTTTTTTTD.n..", "..DDDDDDDDDD.N..", "................"],
-  chevalier: [ // heaume à plumet, bouclier aux couleurs du camp, épée
-    "................", "........TT......", ".......TtT......", "......mmmm..w...",
-    ".....mmmmmM.w...", ".....mMeeMM.w...", ".....mmmmMM.w...", "..TTTTmmmmM.w...",
-    "..TttTMmmmMyyy..", "..TtyTMmmmM.n...", "..TttTMmmmMsn...", "...TTDMmmmM.....",
-    "....D.TTTTT.....", "......TDTDT.....", "......MM.MM.....", "................"],
-  archere: [ // capuche, arc tendu, carquois
-    "................", "......TTT.......", ".....TtTTT...n..", "....TtsssT..wn..",
-    "....TseseT..w.n.", "....TTsssT..w.n.", "...TTtTTTTTsw.n.", "..nTtTTTTTD.w.n.",
-    "..nTtTTTTTD.w.n.", "..yTTTyTTTD.w.n.", "...tTTTTTD..w.n.", "...tTTTTTD..wn..",
-    "...tTTTTTD..n...", "...TTTTTTD......", "....NN..NN......", "................"],
-  golem: [ // colosse de pierre, runes et cœur aux couleurs du camp
-    "................", "................", ".....gggggg.....", "....gGggggGg....",
-    "....gtgggtgg....", "....ggggggGg....", "..TTT.gGGg.TTT..", ".gggggggggggggG.",
-    ".gGgggTTggggGgG.", ".ggG.ggTTg.Gggg.", ".TTT.gggggg.TTT.", ".DDD.gggggG.DDD.",
-    ".....ggGggg.....", "....ggg..ggg....", "....GGG..GGG....", "................"],
-  hibou: [ // hibou familier perché sur une branche
-    "................", "................", "...T........T...", "...TT......TT...",
-    "...TTTTTTTTTT...", "..TwwwTTTTwwwT..", "..TwewTyyTwewT..", "..TwwwTyyTwwwT..",
-    "..TTTTTTTTTTTT..", "..TtTtTttTtTtT..", "..DTtTtTTtTtTD..", "...DTtTTTTtTD...",
-    "....DDTTTTDD....", "..nnnyynnyynnn..", "..NNNNNNNNNNNN..", "................"],
-  esprit: [ // feu follet aux couleurs du camp, cœur blanc
-    "................", ".......t........", "......tt....t...", "......tTt...t...",
-    ".....tTTt..tT...", "....tTTTTt.tT...", "...tTTwTTTtTT...", "...tTwwwTTTTT...",
-    "..tTwwwwwTTTD...", "..tTweweTwTTD...", "..tTwwwwwwTTD...", "..tTwwewwwTD....",
-    "...tTwwwwTTD....", "....DTTTTTD.....", ".....D.D.D......", "................"]
+  1: { main: "#7c3aed", light: "#a78bfa", dark: "#5b21b6", outline: "#1a0b38", gem: "#f5c542" },
+  2: { main: "#f97316", light: "#fdba74", dark: "#c2410c", outline: "#3b1104", gem: "#7dd3fc" }
 };
 
-/* Sprite d'une pièce pour un camp (grille de couleurs, contour automatique). */
-function pieceSprite(shape, player) {
-  var pal = PAWN_PALETTES[player];
-  var cols = { T: pal.main, t: pal.light, D: pal.dark };
-  var grid = outlinedPixels(PIECE_SPRITES[shape], function (ch) { return cols[ch] || PIECE_COLORS[ch] || null; });
-  return grid.map(function (row) { return row.map(function (c) { return c === ART_INK ? pal.outline : c; }); });
-}
-/* Compatibilité : ancien nom (pawnPixels(map, player)) → personnage. */
-function pawnPixels(shape, player) { return pieceSprite(shape, player); }
+/* Rareté des cartes (cosmétique : cadre de métal et reflet holographique).
+   Légendaire = cartes bannies après usage. */
+var CARD_RARITY = {
+  fusion: "legendaire", resurrection: "legendaire", dernier_pari: "legendaire",
+  piege_runique: "epique", sonde: "epique", duplication: "epique", pacte_instable: "epique", interference: "epique", contresort: "epique",
+  bouclier_runique: "rare", gel: "rare", lien: "rare", eveil: "rare", mutation: "rare", reversion: "rare", silence: "rare", dernier_rempart: "rare", sacrifice: "rare"
+};
+var RARITY_STYLES = {
+  commune:    { label: "Commune",    frame: "#8b93a8", hi: "#c3cddc", lo: "#4f5869", gem: "#e2e8f0" },
+  rare:       { label: "Rare",       frame: "#3b6fd1", hi: "#7aa2f0", lo: "#1e3a8a", gem: "#7dd3fc" },
+  epique:     { label: "Épique",     frame: "#8b4fd8", hi: "#c4a1f5", lo: "#4c1d95", gem: "#e879f9" },
+  legendaire: { label: "Légendaire", frame: "#c9a34a", hi: "#f5e09a", lo: "#7a4d0c", gem: "#f5c542" }
+};
+function cardRarity(id) { return CARD_RARITY[id] || "commune"; }
 
 /* ================= Plateau ================= */
 /* Hachage déterministe (même résultat sous Node et dans le navigateur). */
@@ -462,7 +431,7 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     ART_INK: ART_INK, ART_COLORS: ART_COLORS, CARD_SUBJECTS: CARD_SUBJECTS, shadeHex: shadeHex,
     subjectPixels: subjectPixels, outlinedPixels: outlinedPixels, PAWN_PALETTES: PAWN_PALETTES,
-    PIECE_SPRITES: PIECE_SPRITES, PIECE_COLORS: PIECE_COLORS, pieceSprite: pieceSprite, pawnPixels: pawnPixels,
+    CARD_RARITY: CARD_RARITY, RARITY_STYLES: RARITY_STYLES, cardRarity: cardRarity,
     artHash: artHash, TERRAIN: TERRAIN, terrainAt: terrainAt, terrainMap: terrainMap, terrainTile: terrainTile, runeCirclePixels: runeCirclePixels,
     PIXEL_FONT: PIXEL_FONT, UI_SPRITES: UI_SPRITES, BOARD_MARKERS: BOARD_MARKERS, CHIP_COLORS: CHIP_COLORS
   };

@@ -174,14 +174,14 @@ let handJ2FirstTurn = null;
 }
 // A13 sprites / glyphes
 {
-  // 2026-10-23 : les formes sont devenues des personnages (art.js, PIECE_SPRITES) ;
-  // on vérifie leurs silhouettes (tout pixel non vide -> "#") avec le même critère.
-  const ART = require(__dirname + "/../art.js");
-  let okS = true; const maps = M.SHAPES.map(sh => ART.PIECE_SPRITES[sh].map(row => row.replace(/[^.]/g, "#")));
-  maps.forEach(mp => { if (mp.length !== 16 || mp.some(row => row.length !== 16 || /[^.#]/.test(row))) okS = false; });
+  // 2026-10-23 : les formes sont devenues des personnages animés (planches PNG de
+  // assets/characters/) ; on vérifie leur description dans characters.json.
+  const MAN = JSON.parse(require("fs").readFileSync(__dirname + "/../assets/characters/characters.json", "utf8"));
+  let okS = M.SHAPES.every(sh => !!MAN.characters[sh]) && MAN.frame === 64;
+  const maps = M.SHAPES.map(sh => [sh]);
   const distinct = new Set(maps.map(m => m.join("|"))).size;
   let okG = true; Object.values(M.FAMILY_GLYPHS).forEach(mp => { if (mp.length !== 12 || mp.some(row => row.length !== 12)) okG = false; });
-  T("A13 sprites 16x16 valides et distincts, glyphes 12x12", okS && distinct === 6 && okG, "distincts=" + distinct);
+  T("A13 personnages decrits et distincts, glyphes 12x12", okS && distinct === 6 && okG, "distincts=" + distinct);
 }
 // A14 robustesse entrees invalides (sans crash)
 {

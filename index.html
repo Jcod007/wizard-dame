@@ -35,7 +35,7 @@
     <div id="victory" class="victory" style="display:none"></div>
 
     <div class="board-wrap">
-      <div id="phaser-board" role="img" aria-label="Plateau de jeu 8 par 8 en terrain fantastique, coordonnées A à H et 1 à 8"></div>
+      <div id="phaser-board" role="img" aria-label="Plateau de jeu 8 par 8 vu depuis le camp du Joueur 1, coordonnées A à H et 1 à 8"></div>
       <div id="board-banner" class="board-banner" aria-live="polite"></div>
     </div>
 
@@ -54,7 +54,11 @@
     <div id="opp-hand" class="opp-hand"></div>
 
     <h2 class="section-title">Ta main <small>1 carte max par tour, APRÈS ton déplacement</small></h2>
-    <div id="hand" class="hand"></div>
+    <div class="card-table">
+      <div id="discard-pile" class="pile" aria-label="Défausse"></div>
+      <div id="hand" class="hand"></div>
+      <div id="deck-pile" class="pile" aria-label="Pioche"></div>
+    </div>
 
     <div id="card-detail" class="card-detail"></div>
 
@@ -73,7 +77,7 @@
       <li><strong>Sur le plateau :</strong> pointillés dorés en début de partie = zone de placement, gemme verte = déplacement possible, crochets rouges = capture possible, cadre doré = pion sélectionné, pointillés dorés = cible de carte choisie.</li>
       <li><strong>Structure d'un tour :</strong> pioche si ta main a moins de 4 cartes → déplacement principal → <strong>au maximum 1 carte</strong>, jouée après le déplacement. Main de départ : 3, maximum 4. Seule ta main est visible ; celle de l'adversaire est face cachée.</li>
       <li><strong>Les cartes</strong> (30, en 6 familles) : clique une carte pour lire sa cible, ses conditions, son coût, son risque et sa durée, choisis les options éventuelles, clique tes cibles sur le plateau, puis CONFIRMER.</li>
-      <li><strong>Les personnages</strong> (Mage, Chevalier, Archère, Golem, Hibou, Esprit) sont cosmétiques : tous se déplacent de la même façon. Le terrain du plateau est purement décoratif.</li>
+      <li><strong>Les personnages</strong> (Mage, Chevalier, Éclaireur, Golem, Hibou, Esprit) sont cosmétiques : tous se déplacent de la même façon. Le cercle au sol indique le camp ; le terrain est purement décoratif.</li>
       <li><strong>Inspection :</strong> clique un pion adverse (sans pion sélectionné) pour voir ses propriétés — sauf s'il est voilé.</li>
     </ol>
     <p class="note">Puces d'état sur les pions : B bouclier, R rempart, E (or) Égide, E (rouge) Entrave, A ailes, V voilé, S silence, L lié, G gelé/immobilisé, D double, M marque de passage. Certaines règles de la v0.2 sont des <strong>choix provisoires</strong> documentés dans le README.</p>

@@ -1,12 +1,12 @@
 "use strict";
 /*
  * Wizard Dame — engine.js : LOGIQUE PURE du jeu (migration Phaser, 2026-10-23).
- * Extrait mécaniquement de game.js : constantes, catalogue CARDS, decks,
+ * Extrait de l'ancien monolithe game.js (retiré depuis) : constantes, catalogue CARDS, decks,
  * machine à états, système de propriétés provisoire, CARD_FX, et les DONNÉES
  * pixel art des scènes de cartes — comme données uniquement (les sprites des
  * personnages et du terrain sont dans art.js).
- * ZÉRO référence DOM, ZÉRO référence Phaser : chargeable sous Node (tests)
- * exactement comme game.js. Le rendu vit dans phaser-main.js (plateau) et
+ * ZÉRO référence DOM, ZÉRO référence Phaser : chargeable sous Node (tests).
+ * Le rendu vit dans phaser-main.js (plateau) et
  * ui-dom.js (cartes/menus en DOM, sons Web Audio).
  *
  * Wizard Dame — v0.2 (document de conception d'Ekoue, 2026-10-23).
@@ -662,6 +662,7 @@ function cellName(r, c) { return "ABCDEFGH"[c] + (8 - r); }
 
 /* Déplacement principal. move = un élément de pawnMoves(g, r, c). */
 function applyMove(g, r, c, move) {
+  if (!move) return { ok: false, error: "Aucun coup indiqué." };
   if (g.phase !== "move") return { ok: false, error: "Le déplacement principal doit avoir lieu maintenant (phase actuelle : " + g.phase + ")." };
   var pawn = pawnAt(g, r, c);
   if (!pawn || pawn.player !== g.current) return { ok: false, error: "Ce pion n'est pas à toi." };

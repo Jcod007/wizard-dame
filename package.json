@@ -1,0 +1,14 @@
+{
+  "name": "wizard-dame",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Jeu de stratégie tactique au tour par tour en pixel art : cartes, bluff, fusions et pièce essentielle secrète.",
+  "scripts": {
+    "test": "node tests/run-all.js",
+    "test:sim": "node tests/simulation-bot-vs-bot.js 1000",
+    "check": "node --check engine.js && node --check art.js && node --check phaser-main.js && node --check ui-dom.js",
+    "serve": "python3 -m http.server 8000"
+  },
+  "engines": { "node": ">=18" },
+  "license": "UNLICENSED"
+}

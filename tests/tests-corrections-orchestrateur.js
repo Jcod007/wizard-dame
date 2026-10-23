@@ -66,3 +66,4 @@ function firstMove(g, player) { for (let r = 0; r < 8; r++) for (let c = 0; c < 
   T("E3 entrée d'un allié : garde consommée, bouclier gagné", entered && g.guards.length === 0);
 }
 console.log("=== RESULTAT : " + pass + " PASS / " + fail + " FAIL ===");
+process.exitCode = fail ? 1 : 0;

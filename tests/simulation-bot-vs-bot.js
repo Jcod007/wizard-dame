@@ -105,6 +105,7 @@ function run(N) {
     ", plis moyens=" + (totalPlies / Math.max(1, completed)).toFixed(1) +
     ", vainqueurs J1/J2=" + wins[1] + "/" + wins[2] +
     ", victoires essentielle=" + essWins + ", sans-coup=" + noMoveWins + ", autres=" + otherWins);
+  process.exitCode = (errors || completed !== N) ? 1 : 0;
 }
 
 run(parseInt(process.argv[2] || "200", 10));

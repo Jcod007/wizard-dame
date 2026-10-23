@@ -1,10 +1,31 @@
 "use strict";
-/* Juge script du code — tests reconstruits indépendamment. Charge game.js sous Node. */
-const M = require("../engine.js"); // chemin relatif (version projet) — original : /tmp/test_juge3.js, Juge Script du Code, ronde des juges 2026-10-23
-let pass = 0, fail = 0;
+/* Juge script du code — tests reconstruits indépendamment (ronde des juges, 2026-10-23).
+ * Charge engine.js sous Node.
+ *
+ * Bugs CONNUS : reproductions de comportements que le jeu n'a PAS encore corrigés,
+ * en attente d'une décision de conception d'Ekoue (backlog §6.3 du README).
+ * Ils s'affichent « CONNU » et ne font pas échouer la suite. Si l'un d'eux se
+ * met à passer, la suite ÉCHOUE avec « CORRIGÉ » : retire-le alors de KNOWN.
+ * Tout autre échec est un vrai échec. */
+const M = require("../engine.js");
+const KNOWN = {
+  B3: "durée du Silence : expire un tour trop tard (backlog : durées Silence/Lien)",
+  B4: "Dissipation ne retire pas un gel en cours (backlog : Dissipation vs gel)",
+  B5: "J2 commence son premier tour avec 4 cartes (backlog)",
+  B7: "Lien contourné par les cartes de déplacement (backlog)",
+  B8: "Repoussement : un seul pousseur considéré (règle à préciser)",
+  B9: "Réversion après Résurrection restaure les propriétés d'avant la mort (à trancher)",
+  B12: "Piège : durée asymétrique selon le joueur (backlog)",
+  B13: "Anti re-gel contournable en chaîne (backlog)"
+};
+let pass = 0, fail = 0, known = 0;
 function T(name, cond, extra) {
-  if (cond) { pass++; console.log("PASS  " + name + (extra ? "  [" + extra + "]" : "")); }
-  else { fail++; console.log("FAIL  " + name + (extra ? "  [" + extra + "]" : "")); }
+  const id = name.split(" ")[0], why = KNOWN[id];
+  const info = extra ? "  [" + extra + "]" : "";
+  if (why && !cond) { known++; console.log("CONNU " + name + info + "  — " + why); return; }
+  if (why && cond) { fail++; console.log("FAIL  " + name + "  — CORRIGÉ : retirer " + id + " de KNOWN"); return; }
+  if (cond) { pass++; console.log("PASS  " + name + info); }
+  else { fail++; console.log("FAIL  " + name + info); }
 }
 function fresh(seed) {
   const g = M.createGame(seed == null ? 42 : seed);
@@ -95,12 +116,15 @@ let handJ2FirstTurn = null;
   const { g, pools } = fresh(); clearBoard(g);
   const a = put(g, pools[1][0], 4, 4), v = put(g, pools[2][0], 4, 5);
   put(g, pools[1][1], 7, 7); put(g, pools[2][1], 0, 0);
+  // Correction A de l'orchestrateur (§4.3) : la capture contre un pion protégé est une
+  // tentative LÉGALE ; c'est sa résolution qui l'annule (voir B11). L'ancienne attente
+  // « capture exclue des coups légaux » rendait Bouclier et Égide permanents.
   M.addFx(v, "shield", 99, "untilCapture");
   let caps = M.pawnMoves(g, 4, 4).filter(m => m.capture);
-  T("A8a bouclier : capture exclue des coups legaux", caps.length === 0);
+  T("A8a bouclier : la tentative de capture reste un coup legal", caps.length === 1);
   v.fx = []; M.addProp(v, "aegis");
   caps = M.pawnMoves(g, 4, 4).filter(m => m.capture);
-  T("A8b egide : capture exclue des coups legaux", caps.length === 0);
+  T("A8b egide : la tentative de capture reste un coup legal", caps.length === 1);
   T("A8c captureProtection rend shield/aegis selon l'etat", M.captureProtection(g, v) === "aegis");
 }
 // A9 capture de l'essentielle = victoire
@@ -173,7 +197,7 @@ let handJ2FirstTurn = null;
   T("A14 cibles/cases hors plateau refusees sans exception", ok, detail);
 }
 
-console.log("=== B. REPRODUCTIONS DE BUGS (FAIL = bug prouve, l'attendu est le comportement correct) ===");
+console.log("=== B. REPRODUCTIONS DE BUGS (CONNU = bug prouve, en attente de decision ; l'attendu est le comportement correct) ===");
 // B1 gel sur l'unique pion adverse = defaite immediate au startTurn
 {
   const { g, pools } = startGame(); clearBoard(g);
@@ -302,15 +326,15 @@ T("B5 main de J2 a son TOUT premier tour = 3 (comme J1 au depart)", handJ2FirstT
   catch (e) { threw = e.constructor.name + ": " + e.message; }
   T("B10 applyMove(g,r,c,null) doit retourner {ok:false}, pas lever", threw === null, "exception=" + threw);
 }
-// B11 faits sur le bouclier : la branche 'protection qui bloque et se consume' d'applyMove est inatteignable
+// B11 bouclier : la protection bloque la capture puis se consume (correction A appliquée)
 {
   const { g, pools } = fresh(); clearBoard(g);
   const a = put(g, pools[1][0], 4, 4), v = put(g, pools[2][0], 4, 5);
   M.addFx(v, "shield", 99, "untilCapture"); g.phase = "move"; g.current = 1;
   const attempt = M.applyMove(g, 4, 4, { toR: 4, toC: 6 });
   console.log("      [B11] tentative de capture sur pion bouclier : " + JSON.stringify(attempt) + " ; bouclier toujours present : " + !!M.fxOf(v, "shield") + " (remaining=" + (M.fxOf(v, "shield") || {}).remaining + ")");
-  T("B11 [fait] capture sur pion protege refusee comme 'coup illegal' : aucun mecanisme de blocage/consommation n'est atteignable",
-    attempt.ok === false && !!M.fxOf(v, "shield"));
+  T("B11 capture sur pion protege : coup joue, capture annulee, bouclier consomme",
+    attempt.ok === true && g.board[4][5] === v && !M.fxOf(v, "shield"));
 }
 // B12 duree du piege : asymetrie selon le joueur qui le pose
 {
@@ -361,4 +385,5 @@ T("B5 main de J2 a son TOUT premier tour = 3 (comme J1 au depart)", handJ2FirstT
   }
   T("B14 [controle] sur 6 demi-tours, main <= 4 toujours", okCycle && maxSeen <= 4, "max main vue=" + maxSeen);
 }
-console.log("=== RESULTAT : " + pass + " PASS, " + fail + " FAIL ===");
+console.log("=== RESULTAT : " + pass + " PASS, " + fail + " FAIL, " + known + " CONNUS (backlog) ===");
+process.exitCode = fail ? 1 : 0;

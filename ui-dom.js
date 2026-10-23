@@ -761,7 +761,9 @@ if (typeof document !== "undefined") {
     revealBtn.addEventListener("pointerleave", function () { document.getElementById("reveal-text").textContent = ""; });
 
     window.WDCellClick = onCellClick;
-    window.WDDebug = { game: function () { return g; } }; // lecture seule, pour les tests navigateur
+    // Accès à l'état complet pour les tests navigateur, UNIQUEMENT avec ?debug dans
+    // l'URL : sinon un joueur verrait la pièce essentielle adverse dans la console.
+    if (/[?&]debug\b/.test(window.location.search)) window.WDDebug = { game: function () { return g; } };
     refreshSoundBtns();
     render();
   });

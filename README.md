@@ -82,31 +82,29 @@ Sons générés en code (ondes carrées/triangulaires, courts, volume modeste, c
 
 Migration exécutée selon le plan de la synthèse des juges (§5) — moteur décidé par Ekoue : **Phaser 3.60.0**, vendorisé en local (`vendor/phaser.min.js`, 1 158 769 octets), **aucun CDN au runtime, aucune étape de build** : GitHub Pages sert les fichiers statiques tels quels.
 
-- **`engine.js` — logique pure** : constantes, catalogue `CARDS`, decks, machine à états, système de propriétés provisoire, `CARD_FX`, et les données pixel art (`SPRITE_MAPS`, palettes de scènes) comme données. **Zéro DOM, zéro Phaser** : il se charge sous Node exactement comme `game.js` le faisait, et toutes les suites de tests passent contre lui avec des sorties identiques à l'ancien monolithe.
-- **`phaser-main.js` — plateau en Phaser** : config `pixelArt: true` (aucun lissage), plateau logique 144×144 agrandi par multiple entier de pixels physiques ; scène Boot qui génère les textures des personnages (16×16 par camp) depuis `art.js` via canvas textures ; scène Board : cases, pions (sprites persistants par id), surbrillances des coups légaux (`pawnMoves`), clics → `applyMove`, **saut animé en 4 pas discrets** (image par image), **particules pixel par carte** alimentées par `CARD_FX` (déplacement quantifié en 6 pas), marqueurs en sprites pixel (gardes, pièges du propriétaire, leurres, marque de soupçon, puces d'état).
-- **`ui-dom.js` — hybride DOM** (recommandation de l'orchestrateur) : main de cartes, panneau de détail §5.2, journal, indicateur de tour, menus, écran de victoire, passation du choix secret (texte en DOM) et bouton Son restent en DOM/CSS, repris de l'ancienne interface, et appellent les mêmes fonctions du moteur. Le synthétiseur de sons 8-bit Web Audio est repris **tel quel**. Pont plateau ⇄ DOM : `WDBoard.sync(view, hop)` et `window.WDCellClick(r, c)`.
-- **`game.js` — ancien monolithe CONSERVÉ** : la parité logique est prouvée (tests identiques), mais le test navigateur réel n'a pas encore eu lieu ; le monolithe ne sera retiré qu'après ce test. `index.html` charge désormais la version Phaser.
+- **`engine.js` — logique pure** : constantes, catalogue `CARDS`, decks, machine à états (y compris le placement libre et secret), système de propriétés provisoire, `CARD_FX`. **Zéro DOM, zéro Phaser** : il se charge sous Node pour les tests.
+- **`art.js` — ressources pixel art** : données et fonctions pures (personnages, terrain, sujets de cartes, police 3×5, sprites d'interface), elles aussi testables sous Node.
+- **`phaser-main.js` — plateau en Phaser** : config `pixelArt: true` (aucun lissage), plateau logique 144×144 agrandi par multiple entier de pixels physiques ; scène Boot qui génère les textures depuis `art.js` via canvas textures ; scène Board : terrain, personnages (sprites persistants par id), surbrillances des coups légaux (`pawnMoves`), clics → `WDCellClick`, **saut animé en 4 pas discrets**, **particules pixel par carte** alimentées par `CARD_FX`, marqueurs en sprites pixel.
+- **`ui-dom.js` — hybride DOM** : main de cartes, panneau de détail §5.2, journal, indicateur de tour, placement, écrans (menu, règles, passation, victoire) et bouton Son, qui appellent les fonctions du moteur. Synthétiseur de sons 8-bit Web Audio. Pont plateau ⇄ DOM : `WDBoard.sync(view, hop)` et `window.WDCellClick(r, c)`. `window.WDDebug` (état complet de la partie) n'existe qu'avec `?debug` dans l'URL, pour les tests navigateur.
+- L'ancien monolithe `game.js` et ses scripts d'extraction (`build-engine.py`, `build-ui-dom.py`) ont été **retirés** après validation de la version Phaser en navigateur (parties complètes jouées sur ordinateur et mobile, sans erreur). Ils restent consultables dans l'historique git.
 
 ## Tests
 
-- `node --check` : OK sur `engine.js`, `phaser-main.js`, `ui-dom.js` et les suites de `tests/`.
-- `tests/tests-corrections-orchestrateur.js` contre `engine.js` : **9 PASS / 0 FAIL** (identique à `game.js`).
-- `tests/tests-logique-juge-script.js` contre `engine.js` : **23 PASS / 12 FAIL** — identique à la baseline post-corrections de l'orchestrateur ; le FAIL B11 est l'inversion connue (le test constate l'ancien comportement « capture refusée », le moteur applique désormais la capture annulée + protection consommée, comme voulu).
-- `tests/simulation-bot-vs-bot.js` (200 parties, bots aléatoires) contre `engine.js` : **200/200 terminées, 0 erreur moteur, 256,4 plis moyens, victoires par la pièce essentielle 200/200** (baseline orchestrateur sur `game.js` : 200/200, ~241,6 plis, essentielles dominantes).
-- Suites du constructeur v2/v2b (cartes) contre `engine.js` : sorties identiques aux baselines `game.js` (v2 : les 2 seuls échecs sont les assertions de l'ancien comportement « capture contre protégé exclue », remplacé volontairement par la correction A de l'orchestrateur).
-- Service local vérifié : `index.html`, `engine.js`, `phaser-main.js`, `ui-dom.js`, `vendor/phaser.min.js`, `style.css` tous en **HTTP 200**.
-- Limites : **pas encore de test navigateur réel** de la version Phaser (l'environnement d'exécution bloque les URL locales pour l'outil navigateur) — il reste planifié sur l'URL publique après déploiement ; le rendu Phaser, les sons et une partie complète doivent y être vérifiés. Les mains « secrètes » le sont par affichage (seule la main du joueur courant est rendue) mais les deux joueurs partagent le même écran.
+- **`npm test`** lance toutes les suites (`tests/run-all.js`) et échoue si l'une d'elles échoue. `npm run test:sim` lance une simulation de 1 000 parties ; `npm run check` vérifie la syntaxe des sources ; `npm run serve` sert le jeu en local. Aucune dépendance à installer (Node ≥ 18).
+- `tests-logique-juge-script.js` (juges) : **27 PASS, 0 FAIL, 8 CONNUS**. Les tests A8a/A8b/B11, qui attendaient l'ancien comportement « capture contre un pion protégé exclue », vérifient désormais la règle en vigueur (correction A : tentative légale, capture annulée, protection consommée). Les **8 bugs CONNUS** (B3, B4, B5, B7, B8, B9, B12, B13) sont des comportements prouvés mais non corrigés, en attente d'une décision de conception (backlog ci-dessous) : ils s'affichent « CONNU » sans faire échouer la suite, et la suite échoue si l'un d'eux se met à passer, pour qu'on le retire de la liste.
+- `tests-corrections-orchestrateur.js` : 9 PASS. `tests-journal-deplacements.js` : 10 PASS. `tests-placement-libre.js` : 20 PASS. `art-check.js` : ressources pixel art valides.
+- `simulation-bot-vs-bot.js` (200 parties, bots aléatoires) : **200/200 terminées, 0 erreur moteur, 256,4 plis moyens**, victoires par la pièce essentielle 200/200.
+- Navigateur : parties complètes jouées (Chrome, ordinateur 1280 px et mobile 390 px à densité ×3), placement secret, capture, carte jouée, écran de victoire — aucune erreur console. Reste à vérifier sur l'URL publique : sons et rendu sur d'autres navigateurs.
 
 ## Reste à faire (hors migration)
 
-- **Test navigateur réel** sur l'URL publique (rendu Phaser, sons, partie complète, corrections visuelles C1–C12 à valider à l'œil).
-- **G1 — sujets de scène uniques par carte** (chantier design du rapport 05).
-- **Backlog gameplay de la synthèse (§6.3), NON touché par la migration** : durées Silence/Lien, Dernier rempart (décision d'Ekoue), Purification (catalogue de propriétés d'Ekoue), Dissipation vs gel en cours, J2 qui commence à 4 cartes, Lien contourné par les cartes de déplacement, anti-re-gel, piège asymétrique J1/J2.
-- Retrait de `game.js` après parité navigateur prouvée.
+- **Test sur l'URL publique** : sons, autres navigateurs (Firefox, Safari).
+- **Backlog gameplay de la synthèse (§6.3)** — reproduit par les 8 tests CONNUS du juge : durées Silence/Lien, Dernier rempart (décision d'Ekoue), Purification (catalogue de propriétés d'Ekoue), Dissipation vs gel en cours, J2 qui commence à 4 cartes, Lien contourné par les cartes de déplacement, anti-re-gel, piège asymétrique J1/J2.
+- **Qualité du code** : découper `playCard` (un `switch` de ~325 lignes) en une fonction de résolution par carte dans `CARDS` ; faire émettre des événements au moteur plutôt que du texte de journal ; passer aux modules ES natifs (sans build) pour sortir de l'espace global.
 
 ## Fichiers
 
-- `index.html` — page, panneaux, écrans de passation (charge Phaser vendorisé, `engine.js`, `phaser-main.js`, `ui-dom.js`)
+- `index.html` — page et panneaux (charge Phaser vendorisé, `engine.js`, `art.js`, `phaser-main.js`, `ui-dom.js`)
 - `style.css` — interface pixel art + cartes à collectionner (bloc corrections Designer en fin de fichier)
 - `engine.js` — logique pure du jeu (aucun DOM, aucun Phaser), catalogue des 30 cartes, données pixel art
 - `art.js` — ressources pixel art de la section 12 (sujets de cartes, pions, dalles, police 3×5, sprites d'interface)
@@ -114,10 +112,9 @@ Migration exécutée selon le plan de la synthèse des juges (§5) — moteur d�
 - `phaser-main.js` — rendu Phaser du plateau (textures, surbrillances, animations, particules)
 - `ui-dom.js` — UI DOM hybride (cartes, détail §5.2, journal, passation, sons Web Audio)
 - `vendor/phaser.min.js` — Phaser 3.60.0 vendorisé (aucun CDN au runtime)
-- `game.js` — ancien monolithe conservé jusqu'à parité navigateur prouvée
-- `tests/` — suites de logique rejouables, simulation bot-vs-bot, placement libre (`tests-placement-libre.js`) et contrôle des ressources pixel art (`art-check.js`)
-- `rapports-equipe/` — rapports des 7 juges et synthèse de l'orchestrateur
+- `tests/` — suites de logique rejouables, simulation bot-vs-bot, placement libre, journal, contrôle des ressources pixel art, et `run-all.js` (lanceur de `npm test`)
+- `package.json` — scripts `test`, `test:sim`, `check`, `serve` (aucune dépendance)
+- `rapports-equipe/` — rapports des 7 juges et synthèse de l'orchestrateur (non versionné dans ce dépôt)
 - `SPEC_v0.2_notes.md` — notes de prise en charge du document v0.2 et ambiguïtés signalées
-- `references/` — captures fournies par Ekoue (référence de style pour les cartes, à ne pas copier)
-- `build-engine.py` / `build-ui-dom.py` — scripts historiques d'extraction d'`engine.js` et d'`ui-dom.js` depuis `game.js` (ne plus les relancer : les fichiers ont évolué depuis, notamment pour la section 12)
+- `references/` — captures fournies par Ekoue (référence de style pour les cartes, à ne pas copier ; non versionné dans ce dépôt)
 - `README.md` — ce document
